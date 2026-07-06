@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Мастерская Игрушек</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background-color: var(--tg-theme-bg-color, #ffffff);
+        color: var(--tg-theme-text-color, #000000);
+        padding: 20px;
+        text-align: center;
+      }
+      .btn {
+        background-color: var(--tg-theme-button-color, #2481cc);
+        color: var(--tg-theme-button-text-color, #ffffff);
+        border: none;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-size: 16px;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+        margin-top: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Привет, <span id="username">Гость</span>!</h1>
+    <p>Добро пожаловать в наш магазин вязаных игрушек.</p>
+
+    <div
+      style="
+        border: 1px solid #ccc;
+        padding: 15px;
+        border-radius: 10px;
+        display: inline-block;
+        margin-top: 20px;
+      "
+    >
+      <h3>Вязаный Заяц</h3>
+      <p>Цена: 1500 руб</p>
+      <a id="order-link" href="#" target="_blank" class="btn">Заказать в ЛС</a>
+    </div>
+
+    <script>
+      const tg = window.Telegram.WebApp;
+      tg.expand();
+
+      if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+        document.getElementById("username").innerText =
+          tg.initDataUnsafe.user.first_name;
+      }
+
+      // Формируем красивую ссылку для заказа
+      const telegramAdminUsername = "ТВОЙ_НИК_В_ТЕЛЕГРАМ";
+      const itemTitle = "Вязаный Заяц";
+      const itemPrice = "1500 руб";
+
+      // Кодируем текст для URL, чтобы пробелы не сломались
+      const messageText = `Здравствуйте! Хочу заказать игрушку: ${itemTitle} (${itemPrice}).`;
+      const encodedText = encodeURIComponent(messageText);
+
+      // Финальная ссылка вида https://t.me/username?text=привет...
+      const targetUrl = `https://t.me/${telegramAdminUsername}?text=${encodedText}`;
+
+      // Присваиваем ссылку кнопке
+      document.getElementById("order-link").href = targetUrl;
+    </script>
+  </body>
+</html>
