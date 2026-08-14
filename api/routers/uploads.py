@@ -2,16 +2,13 @@ from fastapi import APIRouter, UploadFile, File, HTTPException
 from pathlib import Path
 import shutil
 import uuid
-import os
 
-from dotenv import load_dotenv
-
-load_dotenv()
+from config import settings
 
 router = APIRouter(prefix="/upload", tags=["upload"])
 
-# Используем переменные окружения для путей
-MEDIA_DIR = Path(os.getenv("MEDIA_ROOT", "/app/media/images"))
+# Используем путь из настроек
+MEDIA_DIR = settings.MEDIA_ROOT / "images"
 MEDIA_DIR.mkdir(parents=True, exist_ok=True)
 
 ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp"}
@@ -36,12 +33,11 @@ async def upload_images(files: list[UploadFile] = File(...)):
         with save_path.open("wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        # Формируем URL с использованием переменной окружения или дефолтного значения
-        media_url = os.getenv("MEDIA_URL", "/media")
+        # Формируем URL с использованием MEDIA_URL из настроек
         uploaded.append({
             "filename": safe_name,
             "path": f"images/{safe_name}",
-            "url": f"{media_url}/images/{safe_name}"
+            "url": f"{settings.MEDIA_URL}/images/{safe_name}"
         })
 
     return {
