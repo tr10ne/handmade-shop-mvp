@@ -2,16 +2,24 @@ from fastapi import APIRouter, UploadFile, File, HTTPException
 from pathlib import Path
 import shutil
 import uuid
+import os
+
+from dotenv import load_dotenv
+
+load_dotenv()
 
 router = APIRouter(prefix="/upload", tags=["upload"])
 
-MEDIA_DIR = Path("/app/media/images")
+# Используем переменные окружения для путей
+MEDIA_DIR = Path(os.getenv("MEDIA_ROOT", "/app/media/images"))
 MEDIA_DIR.mkdir(parents=True, exist_ok=True)
 
 ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
+
 @router.post("/images")
 async def upload_images(files: list[UploadFile] = File(...)):
+    """Загрузка изображений для товаров"""
     if not files:
         raise HTTPException(400, "No files uploaded")
 
@@ -28,10 +36,12 @@ async def upload_images(files: list[UploadFile] = File(...)):
         with save_path.open("wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
+        # Формируем URL с использованием переменной окружения или дефолтного значения
+        media_url = os.getenv("MEDIA_URL", "/media")
         uploaded.append({
             "filename": safe_name,
             "path": f"images/{safe_name}",
-            "url": f"http://127.0.0.1:8001/media/images/{safe_name}"
+            "url": f"{media_url}/images/{safe_name}"
         })
 
     return {
