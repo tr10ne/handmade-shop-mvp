@@ -1,0 +1,28 @@
+services:
+  api:
+    build: ./api
+    container_name: hndmd_api
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./data:/app/data
+      - ./media:/app/media
+    restart: unless-stopped
+
+  storefront:
+    image: nginx:alpine
+    container_name: hndmd_front
+    ports:
+      - "3000:80"
+    volumes:
+      - ./storefront:/usr/share/nginx/html:ro
+    restart: unless-stopped
+
+  admin:
+    image: nginx:alpine
+    container_name: hndmd_admin
+    ports:
+      - "3001:80"
+    volumes:
+      - ./admin:/usr/share/nginx/html:ro
+    restart: unless-stopped

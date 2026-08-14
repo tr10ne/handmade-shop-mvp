@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Игрушки и аксессуары ручной работы</title>
+    <!-- <script src="https://telegram.org/js/telegram-web-app.js"></script> -->
+    <style>
+      :root {
+        --bg: #f6f3ee;
+        --card: #ffffff;
+        --text: #222222;
+        --muted: #6f6f6f;
+        --accent: #8a5a44;
+        --accent-2: #6f4634;
+        --border: #e7dfd6;
+        --ok: #2f7a43;
+        --shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+        --radius: 18px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial,
+          sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        padding: 16px;
+      }
+
+      .wrap {
+        max-width: 980px;
+        margin: 0 auto;
+      }
+
+      h1 {
+        font-size: 28px;
+        line-height: 1.2;
+        text-align: center;
+        margin: 8px 0 20px;
+      }
+
+      .topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 14px;
+        flex-wrap: wrap;
+      }
+
+      .badge {
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 8px 12px;
+        font-size: 14px;
+        color: var(--muted);
+      }
+
+      .actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .btn-link {
+        display: inline-block;
+        text-decoration: none;
+        background: var(--accent);
+        color: #fff;
+        border-radius: 12px;
+        padding: 10px 14px;
+        font-weight: 600;
+      }
+
+      .btn-link:hover {
+        background: var(--accent-2);
+      }
+
+      .catalog {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 18px;
+      }
+
+      .card {
+        background: var(--card);
+        border-radius: var(--radius);
+        overflow: hidden;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+      }
+
+      .slider-container {
+        position: relative;
+        width: 100%;
+        height: 300px;
+        overflow: hidden;
+        background: #f2ece4;
+      }
+
+      .slider {
+        display: flex;
+        width: 100%;
+        height: 100%;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        scroll-behavior: smooth;
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+
+      .slider::-webkit-scrollbar {
+        display: none;
+      }
+
+      .slider img {
+        width: 100%;
+        height: 100%;
+        flex-shrink: 0;
+        object-fit: cover;
+        scroll-snap-align: start;
+        background: #f0ebe4;
+      }
+
+      .no-photo {
+        width: 100%;
+        height: 100%;
+        display: grid;
+        place-items: center;
+        color: var(--muted);
+        font-size: 15px;
+        padding: 20px;
+        text-align: center;
+      }
+
+      .slider-dots {
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        bottom: 12px;
+        display: flex;
+        gap: 6px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: rgba(0, 0, 0, 0.28);
+      }
+
+      .dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.45);
+      }
+
+      .dot.active {
+        background: #fff;
+        transform: scale(1.15);
+      }
+
+      .card-info {
+        padding: 16px;
+        display: grid;
+        gap: 10px;
+      }
+
+      .card-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: flex-start;
+      }
+
+      .card-title {
+        font-size: 18px;
+        font-weight: 700;
+        line-height: 1.25;
+      }
+
+      .card-price {
+        white-space: nowrap;
+        color: var(--accent);
+        font-size: 18px;
+        font-weight: 700;
+      }
+
+      .card-desc {
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.45;
+      }
+
+      .card-status {
+        font-size: 13px;
+        font-weight: 600;
+      }
+
+      .status-in-stock {
+        color: var(--ok);
+      }
+      .status-order {
+        color: var(--accent);
+      }
+
+      .btn-order {
+        display: block;
+        text-align: center;
+        background: var(--accent);
+        color: #fff;
+        text-decoration: none;
+        border-radius: 12px;
+        padding: 12px;
+        font-weight: 700;
+        margin-top: 4px;
+      }
+
+      .btn-order:hover {
+        background: var(--accent-2);
+      }
+
+      .empty,
+      .error-box {
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 18px;
+        color: var(--muted);
+        text-align: center;
+      }
+
+      @media (max-width: 640px) {
+        body {
+          padding: 12px;
+        }
+        h1 {
+          font-size: 22px;
+        }
+        .slider-container {
+          height: 240px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Игрушки и аксессуары ручной работы</h1>
+
+      <div class="topbar">
+        <div class="badge">Локальная витрина · API: 127.0.0.1:8001</div>
+        <div class="actions">
+          <a
+            class="btn-link"
+            href="http://127.0.0.1:8001/docs"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Swagger API</a
+          >
+          <a
+            class="btn-link"
+            href="http://127.0.0.1:3001"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Админка</a
+          >
+        </div>
+      </div>
+
+      <div id="catalog" class="catalog"></div>
+    </div>
+
+    <script src="./config.js"></script>
+
+    <script>
+      const tg = window.Telegram?.WebApp || null;
+      if (tg) tg.expand();
+
+      const CONFIG = window.APP_CONFIG || {};
+      const API_BASE = CONFIG.API_BASE || "http://127.0.0.1:8001";
+      const MEDIA_BASE = CONFIG.MEDIA_BASE || "http://127.0.0.1:8001/media";
+      const PRODUCTS_ENDPOINT = CONFIG.PRODUCTS_ENDPOINT || "/products/";
+      const ADMIN_USERNAME = "katerinkaexbro";
+
+      function escapeHtml(value) {
+        return String(value ?? "")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#039;");
+      }
+
+      function statusMeta(status) {
+        if (status === "in_stock") {
+          return { text: "В наличии", className: "status-in-stock" };
+        }
+        if (status === "order") {
+          return { text: "Под заказ", className: "status-order" };
+        }
+        return { text: status || "Не указан", className: "" };
+      }
+
+      function updateDots(productIndex, sliderElement) {
+        const width = sliderElement.offsetWidth || 1;
+        const activeIndex = Math.round(sliderElement.scrollLeft / width);
+        const dotsContainer = document.getElementById(`dots-${productIndex}`);
+        if (!dotsContainer) return;
+        dotsContainer.querySelectorAll(".dot").forEach((dot, index) => {
+          dot.classList.toggle("active", index === activeIndex);
+        });
+      }
+      window.updateDots = updateDots;
+
+      function buildImageSlides(product, pIndex) {
+        const images = Array.isArray(product.images) ? product.images : [];
+        if (!images.length) {
+          return {
+            imagesHtml: `<div class="no-photo">Фото пока не добавлено</div>`,
+            dotsHtml: "",
+          };
+        }
+
+        let imagesHtml = "";
+        let dotsHtml = "";
+
+        images.forEach((imgUrl, iIndex) => {
+          const fullImgUrl = `${MEDIA_BASE}/${imgUrl}`;
+          imagesHtml += `<img src="${fullImgUrl}" alt="${escapeHtml(product.title)} ${iIndex + 1}" loading="lazy" onerror="this.style.display='none';">`;
+
+          if (images.length > 1) {
+            dotsHtml += `<div class="dot ${iIndex === 0 ? "active" : ""}"></div>`;
+          }
+        });
+
+        return { imagesHtml, dotsHtml };
+      }
+
+      function buildOrderUrl(product) {
+        const priceText =
+          product.price != null ? `${product.price} руб` : "цену уточнить";
+        const text = `Здравствуйте! Хочу заказать: ${product.title}. Цена: ${priceText}.`;
+        return `https://t.me/${ADMIN_USERNAME}?text=${encodeURIComponent(text)}`;
+      }
+
+      function renderProducts(products) {
+        const container = document.getElementById("catalog");
+        container.innerHTML = "";
+
+        if (!Array.isArray(products) || products.length === 0) {
+          container.innerHTML = `<div class="empty">Пока товаров нет. Добавь первый товар через админку.</div>`;
+          return;
+        }
+
+        products.forEach((product, pIndex) => {
+          const { text, className } = statusMeta(product.status);
+          const { imagesHtml, dotsHtml } = buildImageSlides(product, pIndex);
+          const orderUrl = buildOrderUrl(product);
+
+          const cardHtml = `
+          <article class="card">
+            <div class="slider-container">
+              <div class="slider" id="slider-${pIndex}" onscroll="updateDots(${pIndex}, this)">
+                ${imagesHtml}
+              </div>
+              ${dotsHtml ? `<div class="slider-dots" id="dots-${pIndex}">${dotsHtml}</div>` : ""}
+            </div>
+
+            <div class="card-info">
+              <div class="card-header">
+                <div class="card-title">${escapeHtml(product.title)}</div>
+                <div class="card-price">${product.price != null ? `${product.price} руб` : "—"}</div>
+              </div>
+
+              <div class="card-desc">${escapeHtml(product.description || "")}</div>
+              <div class="card-status ${className}">${text}</div>
+
+              <a href="${orderUrl}" target="_blank" rel="noopener noreferrer" class="btn-order">Заказать</a>
+            </div>
+          </article>
+        `;
+
+          container.insertAdjacentHTML("beforeend", cardHtml);
+        });
+      }
+
+      async function loadProducts() {
+        const container = document.getElementById("catalog");
+        container.innerHTML = `<div class="empty">Загружаем товары...</div>`;
+
+        try {
+          const response = await fetch(`${API_BASE}${PRODUCTS_ENDPOINT}`);
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+
+          const products = await response.json();
+          renderProducts(products);
+        } catch (error) {
+          console.error(error);
+          container.innerHTML = `<div class="error-box">Не удалось загрузить товары. Проверь API на 127.0.0.1:8001.</div>`;
+        }
+      }
+
+      loadProducts();
+    </script>
+  </body>
+</html>
