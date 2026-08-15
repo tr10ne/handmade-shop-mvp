@@ -295,13 +295,15 @@
         </section>
 
         <section class="card">
-          <h2>Добавить товар</h2>
+          <h2>Управление товарами</h2>
           <p class="hint">
             Поле <code>images</code> можно заполнять вручную или через загрузку.
             Формат: <code>images/photo1.jpg, images/photo2.jpg</code>
           </p>
 
           <form id="productForm" class="form-grid">
+            <input type="hidden" id="productId" value="" />
+            
             <label>
               Название
               <input id="title" type="text" required />
@@ -376,6 +378,7 @@
 
             <div class="actions">
               <button class="btn-primary" type="submit">Сохранить товар</button>
+              <button class="btn-secondary" type="button" id="clearProductFormBtn">Очистить</button>
               <button class="btn-secondary" type="button" id="reloadBtn">
                 Обновить список
               </button>
@@ -578,16 +581,17 @@
                 <div>
                   <div class="item-title">${escapeHtml(product.title)}</div>
                   <div class="item-meta">
-                    ID: ${product.id} · ${product.price ?? "—"} руб · ${escapeHtml(product.status)}
+                    ID: ${product.id} · ${product.price ?? "—"} руб · ${escapeHtml(product.status)} · ${product.category_name || 'Без категории'}
                   </div>
+                </div>
+                <div class="item-actions">
+                  <button class="btn-secondary" onclick="editProduct(${product.id})">Ред.</button>
+                  <button class="btn-danger" data-id="${product.id}">Удалить</button>
                 </div>
               </div>
               <div>${escapeHtml(product.description || "")}</div>
               <div class="item-meta">
                 Images: ${escapeHtml(images.length ? images.join(", ") : "нет")}
-              </div>
-              <div class="item-actions">
-                <button class="btn-danger" data-id="${product.id}">Удалить</button>
               </div>
             `;
 
@@ -684,6 +688,7 @@
         .addEventListener("submit", async (e) => {
           e.preventDefault();
 
+          const productId = document.getElementById("productId").value;
           const payload = {
             title: document.getElementById("title").value.trim(),
             description:
@@ -699,10 +704,18 @@
           };
 
           try {
+            let url = `${API_BASE}${PRODUCTS_ENDPOINT}`;
+            let method = 'POST';
+            
+            if (productId) {
+              url = `${API_BASE}${PRODUCTS_ENDPOINT}${productId}`;
+              method = 'PUT';
+            }
+
             const response = await fetchWithTimeout(
-              `${API_BASE}${PRODUCTS_ENDPOINT}`,
+              url,
               {
-                method: "POST",
+                method: method,
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
               },
@@ -713,14 +726,47 @@
             }
 
             document.getElementById("productForm").reset();
+            document.getElementById("productId").value = '';
             updateImagesPreview();
-            setMessage("Товар успешно сохранён");
+            setMessage(productId ? "Товар обновлён" : "Товар создан");
             await loadProducts();
           } catch (error) {
             console.error(error);
             setMessage("Ошибка сохранения товара", true);
           }
         });
+
+      document
+        .getElementById("clearProductFormBtn")
+        .addEventListener("click", () => {
+          document.getElementById("productForm").reset();
+          document.getElementById("productId").value = '';
+          updateImagesPreview();
+          setMessage('');
+        });
+
+      window.editProduct = async function(id) {
+        try {
+          const response = await fetchWithTimeout(`${API_BASE}${PRODUCTS_ENDPOINT}${id}`);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          
+          const product = await response.json();
+          
+          document.getElementById("productId").value = product.id;
+          document.getElementById("title").value = product.title;
+          document.getElementById("description").value = product.description || '';
+          document.getElementById("price").value = product.price || '';
+          document.getElementById("status").value = product.status;
+          document.getElementById("productCategory").value = product.category_id || '';
+          document.getElementById("images").value = Array.isArray(product.images) ? product.images.join(', ') : '';
+          
+          updateImagesPreview();
+          setMessage('Редактирование товара #' + id);
+        } catch (e) {
+          console.error(e);
+          setMessage('Ошибка загрузки товара', true);
+        }
+      };
 
       document
         .getElementById("reloadBtn")

@@ -196,3 +196,59 @@ async def reorder_images(product_id: int, images: list[str], db: AsyncSession = 
     await db.refresh(product)
     
     return {"ok": True, "images": images}
+
+
+class ProductReorder(BaseModel):
+    """Модель для изменения порядка товаров"""
+    product_id: int
+    sort_order: int
+
+
+@router.post("/reorder")
+async def reorder_products(items: list[ProductReorder], db: AsyncSession = Depends(get_db)):
+    """Массовое изменение порядка товаров"""
+    for item in items:
+        product = await db.get(Product, item.product_id)
+        if product:
+            product.sort_order = item.sort_order
+    
+    await db.commit()
+    
+    return {"ok": True, "message": f"Обновлено {len(items)} товаров"}
+
+
+@router.get("/{product_id}/full")
+async def get_product_full(product_id: int, db: AsyncSession = Depends(get_db)):
+    """Получить полную информацию о товаре включая категорию и аукцион"""
+    product = await db.get(Product, product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail="Товар не найден")
+    
+    # Получаем информацию об аукционе если товар на аукционе
+    auction_info = None
+    if product.is_auction:
+        auction_query = select(ProductAuction).where(ProductAuction.product_id == product_id)
+        auction_result = await db.execute(auction_query)
+        auction = auction_result.scalars().first()
+        if auction:
+            # Получаем текущую максимальную ставку
+            bid_query = select(AuctionBid).where(AuctionBid.auction_id == auction.id).order_by(AuctionBid.amount.desc()).limit(1)
+            bid_result = await db.execute(bid_query)
+            highest_bid = bid_result.scalars().first()
+            
+            auction_info = {
+                "id": auction.id,
+                "start_price": auction.start_price,
+                "current_price": highest_bid.amount if highest_bid else auction.start_price,
+                "start_time": auction.start_time,
+                "end_time": auction.end_time,
+                "status": auction.status,
+                "winner_id": auction.winner_id,
+                "bids_count": len(auction.bids) if hasattr(auction, 'bids') else 0
+            }
+    
+    result = product_to_out(product)
+    result_dict = result.model_dump()
+    result_dict["auction_info"] = auction_info
+    
+    return result_dict
