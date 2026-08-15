@@ -29,8 +29,8 @@ app = FastAPI(
 )
 
 # Монтирование статических файлов для медиа
-media_path = settings.MEDIA_ROOT.parent
-app.mount(settings.MEDIA_URL, StaticFiles(directory=str(media_path)), name="media")
+# MEDIA_ROOT указывает на директорию с файлами, монтируем её напрямую
+app.mount(settings.MEDIA_URL, StaticFiles(directory=str(settings.MEDIA_ROOT)), name="media")
 
 # CORS настройки
 app.add_middleware(
