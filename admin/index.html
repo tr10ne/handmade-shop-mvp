@@ -798,6 +798,9 @@
           
           updateImagesPreview();
           setMessage('Редактирование товара #' + id);
+          
+          // Прокрутка к форме товара
+          document.getElementById("productForm").scrollIntoView({ behavior: 'smooth', block: 'start' });
         } catch (e) {
           console.error(e);
           setMessage('Ошибка загрузки товара', true);
@@ -880,6 +883,9 @@
           document.getElementById("categoryIsActive").value = String(cat.is_active);
           
           setCategoryMessage('Редактирование категории #' + id);
+          
+          // Прокрутка к форме категории
+          document.getElementById("categoryForm").scrollIntoView({ behavior: 'smooth', block: 'start' });
         } catch (e) {
           console.error(e);
           setCategoryMessage('Ошибка загрузки категории', true);
