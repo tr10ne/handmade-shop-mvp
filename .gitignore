@@ -12,6 +12,8 @@ build/
 *.so
 *.a
 *.out
+media/images
+data/*.db
 
 # Dependencies
 .venv/
