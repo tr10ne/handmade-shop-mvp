@@ -606,7 +606,19 @@
 
     <script src="./config.js"></script>
 
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
     <script>
+
+      const tg = window.Telegram.WebApp;
+        if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
+            tg.ready();
+            tg.expand();
+            document.documentElement.style.setProperty('--bg-color', tg.backgroundColor || '#f2f2f7');
+            document.documentElement.style.setProperty('--text-color', tg.textColor || '#000000');
+            document.documentElement.style.setProperty('--primary-color', tg.buttonColor || '#0088cc');
+        }
+
       const CONFIG = window.APP_CONFIG;
       const API_BASE = CONFIG.API_BASE;
       const UPLOAD_ENDPOINT = CONFIG.UPLOAD_ENDPOINT;
