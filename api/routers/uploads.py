@@ -1,7 +1,8 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException, Form
 from pathlib import Path
 import shutil
 import uuid
+import io
 
 from config import settings
 
@@ -23,15 +24,49 @@ async def upload_images(files: list[UploadFile] = File(...)):
     uploaded = []
 
     for file in files:
-        if file.content_type not in ALLOWED_TYPES:
-            raise HTTPException(400, f"Unsupported file type: {file.content_type}")
+        # Определяем тип файла более гибко - сначала по расширению, потом по content-type
+        filename = file.filename or ""
+        ext = Path(filename).suffix.lower()
+        
+        # Сначала пробуем определить тип по расширению файла (важно для мобильных)
+        content_type = ""
+        if ext in ['.jpg', '.jpeg']:
+            content_type = 'image/jpeg'
+        elif ext == '.png':
+            content_type = 'image/png'
+        elif ext == '.webp':
+            content_type = 'image/webp'
+        else:
+            # Если расширение не узнаваемо, используем content-type из запроса
+            content_type = file.content_type or ""
+        
+        if content_type not in ALLOWED_TYPES:
+            raise HTTPException(400, f"Unsupported file type: {content_type or 'unknown'} (filename: {filename})")
 
-        ext = Path(file.filename).suffix.lower() or ".jpg"
+        if not ext:
+            # Если расширения нет, добавляем по типу контента
+            if content_type == 'image/jpeg':
+                ext = '.jpg'
+            elif content_type == 'image/png':
+                ext = '.png'
+            elif content_type == 'image/webp':
+                ext = '.webp'
+            else:
+                ext = '.jpg'
+        
         safe_name = f"{uuid.uuid4().hex}{ext}"
         save_path = MEDIA_DIR / safe_name
 
-        with save_path.open("wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        try:
+            with save_path.open("wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+            
+            # Проверяем что файл действительно сохранился
+            if not save_path.exists():
+                raise HTTPException(500, f"Failed to save file: {safe_name}")
+                
+        except Exception as e:
+            raise HTTPException(500, f"Error saving file: {str(e)}")
 
         # Формируем URL с использованием MEDIA_URL из настроек
         uploaded.append({
