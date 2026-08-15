@@ -513,8 +513,6 @@
               <a
                 class="btn-secondary btn-link"
                 id="storefrontLink"
-                target="_blank"
-                rel="noopener noreferrer"
                 >Открыть витрину</a
               >
             </div>
@@ -529,25 +527,19 @@
             <div class="item">
               <div class="item-title">Проверка API</div>
               <div class="item-meta">
-                <a id="healthLink" target="_blank" rel="noopener noreferrer"
-                  >/api/health</a
-                >
+                <a id="healthLink">/api/health</a>
               </div>
             </div>
             <div class="item">
               <div class="item-title">Swagger</div>
               <div class="item-meta">
-                <a id="docsLink" target="_blank" rel="noopener noreferrer"
-                  >/api/docs</a
-                >
+                <a id="docsLink">/api/docs</a>
               </div>
             </div>
             <div class="item">
               <div class="item-title">Список товаров JSON</div>
               <div class="item-meta">
-                <a id="productsLink" target="_blank" rel="noopener noreferrer"
-                  >/api/products/</a
-                >
+                <a id="productsLink">/api/products/</a>
               </div>
             </div>
             <div class="item">
@@ -610,14 +602,32 @@
 
     <script>
 
-      const tg = window.Telegram.WebApp;
-        if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
+      const tg = window.Telegram?.WebApp || null;
+        if (tg) {
             tg.ready();
             tg.expand();
             document.documentElement.style.setProperty('--bg-color', tg.backgroundColor || '#f2f2f7');
             document.documentElement.style.setProperty('--text-color', tg.textColor || '#000000');
             document.documentElement.style.setProperty('--primary-color', tg.buttonColor || '#0088cc');
         }
+
+      // Перехват кликов по ссылкам для открытия внутри TG App
+      document.addEventListener('click', function(e) {
+        const link = e.target.closest('a[href]');
+        if (!link) return;
+
+        const href = link.getAttribute('href');
+
+        // Если это внешняя ссылка (начинается с http:// или https://)
+        if (href.startsWith('http://') || href.startsWith('https://')) {
+          e.preventDefault();
+          // Открываем ссылку внутри Telegram
+          if (tg && tg.openLink) {
+            tg.openLink(href);
+          }
+        }
+        // Внутренние ссылки обрабатываются браузером по умолчанию
+      });
 
       const CONFIG = window.APP_CONFIG;
       const API_BASE = CONFIG.API_BASE;

@@ -337,8 +337,6 @@
         <div class="badge">Локальная витрина · 
           <a
             href="/api/health"
-            target="_blank"
-            rel="noopener noreferrer"
             >API
           </a
           ></div>
@@ -346,15 +344,11 @@
           <a
             class="btn-link"
             href="/api/docs"
-            target="_blank"
-            rel="noopener noreferrer"
             >Swagger API</a
           >
           <a
             class="btn-link"
             href="/admin/"
-            target="_blank"
-            rel="noopener noreferrer"
             >Админка</a
           >
         </div>
@@ -381,6 +375,22 @@
 
       tg.ready();
       if (tg) tg.expand();
+
+      // Перехват кликов по ссылкам для открытия внутри TG App
+      document.addEventListener('click', function(e) {
+        const link = e.target.closest('a[href]');
+        if (!link) return;
+
+        const href = link.getAttribute('href');
+
+        // Если это внешняя ссылка (начинается с http:// или https://)
+        if (href.startsWith('http://') || href.startsWith('https://')) {
+          e.preventDefault();
+          // Открываем ссылку внутри Telegram используя MainButton или просто переходим
+          tg.openLink(href);
+        }
+        // Внутренние ссылки обрабатываются браузером по умолчанию
+      });
 
       const CONFIG = window.APP_CONFIG || {};
       const API_BASE = CONFIG.API_BASE || "/api/";
@@ -507,7 +517,7 @@
                 <div class="card-price">${product.price != null ? `${product.price} руб` : "—"}</div>
               </div>
 
-              <a href="${orderUrl}" target="_blank" rel="noopener noreferrer" class="btn-order">Заказать</a>
+              <a href="${orderUrl}" class="btn-order">Заказать</a>
             </div>
           </article>
         `;
