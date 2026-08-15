@@ -6,8 +6,8 @@ from datetime import datetime, timedelta
 import json
 import os
 
-from api.database import get_db
-from api.models import Category, Product
+from database import get_db
+from models import Category, Product
 
 
 router = APIRouter(prefix="/categories", tags=["categories"])

@@ -4,7 +4,7 @@ import shutil
 import uuid
 import io
 
-from api.config import settings
+from config import settings
 
 router = APIRouter(prefix="/upload", tags=["upload"])
 
