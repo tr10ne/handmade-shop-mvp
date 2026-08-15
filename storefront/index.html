@@ -335,18 +335,25 @@
       <h1>Игрушки и аксессуары ручной работы</h1>
 
       <div class="topbar">
-        <div class="badge">Локальная витрина · API: 127.0.0.1:8001</div>
+        <div class="badge">Локальная витрина · 
+          <a
+            href="/api/health"
+            target="_blank"
+            rel="noopener noreferrer"
+            >API
+          </a
+          ></div>
         <div class="actions">
           <a
             class="btn-link"
-            href="http://127.0.0.1:8001/docs"
+            href="/api/docs"
             target="_blank"
             rel="noopener noreferrer"
             >Swagger API</a
           >
           <a
             class="btn-link"
-            href="http://127.0.0.1:3001"
+            href="/admin/"
             target="_blank"
             rel="noopener noreferrer"
             >Админка</a
@@ -373,8 +380,8 @@
       if (tg) tg.expand();
 
       const CONFIG = window.APP_CONFIG || {};
-      const API_BASE = CONFIG.API_BASE || "http://127.0.0.1:8001";
-      const MEDIA_BASE = CONFIG.MEDIA_BASE || "http://127.0.0.1:8001/media";
+      const API_BASE = CONFIG.API_BASE || "/api/";
+      const MEDIA_BASE = CONFIG.MEDIA_BASE || "/api/media/";
       const PRODUCTS_ENDPOINT = CONFIG.PRODUCTS_ENDPOINT || "/products/";
       const ADMIN_USERNAME = "katerinkaexbro";
 
@@ -520,7 +527,7 @@
           renderProducts(products);
         } catch (error) {
           console.error(error);
-          container.innerHTML = `<div class="error-box">Не удалось загрузить товары. Проверь API на 127.0.0.1:8001.</div>`;
+          container.innerHTML = `<div class="error-box">Не удалось загрузить товары. Проверь API на /api/health/.</div>`;
         }
       }
 
