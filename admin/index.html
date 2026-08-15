@@ -257,6 +257,8 @@
         display: flex;
         flex-wrap: wrap;
         gap: 8px;
+        width: 100%;
+        max-width: 100%;
       }
 
       .preview-chip {
@@ -272,6 +274,8 @@
         display: flex;
         align-items: center;
         gap: 6px;
+        min-width: 0; /* Важно для работы text-overflow внутри flex */
+        flex: 1 1 auto; /* Элемент может сжиматься и расти */
       }
 
       .preview-chip .remove-img {
@@ -649,11 +653,17 @@
 
         preview.innerHTML = images
           .map(
-            (img, index) =>
-              `<div class="preview-chip" title="${escapeHtml(img)}">
-                <span>${escapeHtml(img)}</span>
+            (img, index) => {
+              // Сокращаем длинный путь для отображения, оставляя начало и конец
+              let displayPath = img;
+              if (img.length > 30) {
+                displayPath = img.substring(0, 15) + "..." + img.substring(img.length - 15);
+              }
+              return `<div class="preview-chip" title="${escapeHtml(img)}">
+                <span>${escapeHtml(displayPath)}</span>
                 <span class="remove-img" onclick="removeImage(${index})" title="Удалить изображение">×</span>
-              </div>`,
+              </div>`;
+            }
           )
           .join("");
       }
@@ -906,8 +916,8 @@
           formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
           
           // Добавляем визуальный индикатор режима редактирования
-          formElement.style.border = '2px solid var(--accent)';
-          formElement.style.transition = 'border 0.3s ease';
+          formElement.style.outline = '3px solid var(--accent)';
+          formElement.style.outlineOffset = '2px';
         } catch (e) {
           console.error('Ошибка при загрузке товара:', e);
           setMessage('Ошибка загрузки товара: ' + e.message, true);
