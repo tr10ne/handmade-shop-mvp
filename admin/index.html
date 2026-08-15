@@ -849,6 +849,34 @@
         }
       }
 
+      // Функция транслитерации кириллицы в латиницу
+      function transliterateToSlug(text) {
+        const cyrillicMap = {
+          'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'yo', 'ж': 'zh',
+          'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm', 'н': 'n', 'о': 'o',
+          'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u', 'ф': 'f', 'х': 'h', 'ц': 'ts',
+          'ч': 'ch', 'ш': 'sh', 'щ': 'sch', 'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu',
+          'я': 'ya'
+        };
+        
+        return text.toLowerCase()
+          .split('')
+          .map(char => cyrillicMap[char] || char)
+          .join('')
+          .replace(/[^a-z0-9\-]/g, '-')  // заменяем все нежелательные символы на дефис
+          .replace(/-+/g, '-')           // убираем множественные дефисы
+          .replace(/^-|-$/g, '');        // убираем дефисы по краям
+      }
+
+      // Автогенерация slug при вводе названия категории
+      document.getElementById("categoryName").addEventListener("input", function(e) {
+        const slugField = document.getElementById("categorySlug");
+        // Генерируем slug только если поле slug пустое или пользователь ещё не редактировал его вручную
+        if (!slugField.value || slugField.value === transliterateToSlug(this.value.substring(0, this.value.length - 1))) {
+          slugField.value = transliterateToSlug(this.value);
+        }
+      });
+
       document
         .getElementById("categoryForm")
         .addEventListener("submit", async (e) => {
