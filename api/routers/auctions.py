@@ -38,6 +38,14 @@ class AuctionCreate(BaseModel):
     duration_hours: int = Field(default=48, ge=1, le=720)
 
 
+class AuctionUpdate(BaseModel):
+    """Модель для обновления параметров аукциона"""
+    start_price: float | None = Field(None, gt=0)
+    min_bid_increment: float | None = None
+    end_time: datetime | None = None
+    status: str | None = None
+
+
 class BidCreate(BaseModel):
     auction_id: int
     amount: float = Field(..., gt=0)
@@ -261,3 +269,28 @@ async def end_auction(auction_id: int, db: AsyncSession = Depends(get_db)):
         "winner_id": auction.winner_id,
         "final_bid": highest_bid.amount if highest_bid else None
     }
+
+
+@router.put("/{auction_id}")
+async def update_auction(auction_id: int, payload: AuctionUpdate, db: AsyncSession = Depends(get_db)):
+    """Обновить параметры аукциона"""
+    auction = await db.get(ProductAuction, auction_id)
+    if not auction:
+        raise HTTPException(status_code=404, detail="Аукцион не найден")
+    
+    if auction.status != "active":
+        raise HTTPException(status_code=400, detail="Можно обновить только активный аукцион")
+    
+    update_data = payload.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(auction, field, value)
+    
+    await db.commit()
+    await db.refresh(auction)
+    
+    # Получаем количество ставок
+    count_query = select(func.count(AuctionBid.id)).where(AuctionBid.auction_id == auction_id)
+    count_result = await db.execute(count_query)
+    bids_count = count_result.scalar() or 0
+    
+    return auction_to_out(auction, bids_count)
