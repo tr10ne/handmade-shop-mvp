@@ -1,10 +1,20 @@
 ```
 # Python
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-
+*.o
+*.obj
+dist/
+build/
+media/images/
+data/*.db
+# Dependencies
+.venv/
+venv/
+node_modules/
+# Logs and temp files
+*.log
+*.tmp
+*.swp
 # Environment
 .env
 .env.local
