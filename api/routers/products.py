@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from pydantic import BaseModel, Field
@@ -9,9 +9,27 @@ import os
 from database import get_db
 from models import Product, Category, ProductAuction, AuctionBid, ProductStatus
 
+# Импортируем функцию проверки админа из main
+async def verify_admin_access(request: Request) -> bool:
+    """Проверяет, есть ли у пользователя доступ администратора"""
+    tg_user_id = request.headers.get("X-Telegram-User-Id")
+
+    if not tg_user_id:
+        return False
+
+    try:
+        user_id = int(tg_user_id)
+        # Получаем список админов из переменных окружения
+        admin_ids = [
+            int(id_str.strip())
+            for id_str in os.getenv("ADMIN_TELEGRAM_IDS", "").split(",")
+            if id_str.strip()
+        ]
+        return user_id in admin_ids
+    except (ValueError, TypeError):
+        return False
 
 router = APIRouter(prefix="/products", tags=["products"])
-
 
 class ProductOut(BaseModel):
     id: int
@@ -72,13 +90,16 @@ def product_to_out(p: Product) -> ProductOut:
 
 @router.get("/", response_model=list[ProductOut])
 async def list_products(
+    request: Request,
     status: str | None = None,
     category_id: int | None = None,
     category_slug: str | None = None,
     is_auction: bool | None = None,
     db: AsyncSession = Depends(get_db)
 ):
-    """Получить список товаров с фильтрацией"""
+    """Получить список товаров с фильтрацией - только для админов"""
+    if not await verify_admin_access(request):
+        raise HTTPException(status_code=403, detail="Доступ запрещён. Только для администраторов.")
     query = select(Product)
     
     if status:
@@ -101,8 +122,10 @@ async def list_products(
 
 
 @router.get("/{product_id}", response_model=ProductOut)
-async def get_product(product_id: int, db: AsyncSession = Depends(get_db)):
-    """Получить товар по ID"""
+async def get_product(request: Request, product_id: int, db: AsyncSession = Depends(get_db)):
+    """Получить товар по ID - только для админов"""
+    if not await verify_admin_access(request):
+        raise HTTPException(status_code=403, detail="Доступ запрещён. Только для администраторов.")
     product = await db.get(Product, product_id)
     if not product:
         raise HTTPException(status_code=404, detail="Товар не найден")
@@ -110,8 +133,10 @@ async def get_product(product_id: int, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/", response_model=ProductOut, status_code=status.HTTP_201_CREATED)
-async def create_product(payload: ProductCreate, db: AsyncSession = Depends(get_db)):
-    """Создать новый товар"""
+async def create_product(request: Request, payload: ProductCreate, db: AsyncSession = Depends(get_db)):
+    """Создать новый товар - только для админов"""
+    if not await verify_admin_access(request):
+        raise HTTPException(status_code=403, detail="Доступ запрещён. Только для администраторов.")
     # Проверка категории если указана
     if payload.category_id:
         category = await db.get(Category, payload.category_id)
@@ -136,8 +161,10 @@ async def create_product(payload: ProductCreate, db: AsyncSession = Depends(get_
 
 
 @router.put("/{product_id}", response_model=ProductOut)
-async def update_product(product_id: int, payload: ProductUpdate, db: AsyncSession = Depends(get_db)):
-    """Обновить товар"""
+async def update_product(request: Request, product_id: int, payload: ProductUpdate, db: AsyncSession = Depends(get_db)):
+    """Обновить товар - только для админов"""
+    if not await verify_admin_access(request):
+        raise HTTPException(status_code=403, detail="Доступ запрещён. Только для администраторов.")
     product = await db.get(Product, product_id)
     if not product:
         raise HTTPException(status_code=404, detail="Товар не найден")
@@ -158,8 +185,10 @@ async def update_product(product_id: int, payload: ProductUpdate, db: AsyncSessi
 
 
 @router.delete("/{product_id}")
-async def delete_product(product_id: int, db: AsyncSession = Depends(get_db)):
-    """Удалить товар"""
+async def delete_product(request: Request, product_id: int, db: AsyncSession = Depends(get_db)):
+    """Удалить товар - только для админов"""
+    if not await verify_admin_access(request):
+        raise HTTPException(status_code=403, detail="Доступ запрещён. Только для администраторов.")
     product = await db.get(Product, product_id)
     if not product:
         raise HTTPException(status_code=404, detail="Товар не найден")
@@ -171,8 +200,10 @@ async def delete_product(product_id: int, db: AsyncSession = Depends(get_db)):
 
 
 @router.patch("/{product_id}/reorder")
-async def reorder_product(product_id: int, sort_order: int, db: AsyncSession = Depends(get_db)):
-    """Изменить порядок товара в карусели"""
+async def reorder_product(request: Request, product_id: int, sort_order: int, db: AsyncSession = Depends(get_db)):
+    """Изменить порядок товара в карусели - только для админов"""
+    if not await verify_admin_access(request):
+        raise HTTPException(status_code=403, detail="Доступ запрещён. Только для администраторов.")
     product = await db.get(Product, product_id)
     if not product:
         raise HTTPException(status_code=404, detail="Товар не найден")
@@ -185,8 +216,10 @@ async def reorder_product(product_id: int, sort_order: int, db: AsyncSession = D
 
 
 @router.put("/{product_id}/images/reorder")
-async def reorder_images(product_id: int, images: list[str], db: AsyncSession = Depends(get_db)):
-    """Обновить порядок изображений товара"""
+async def reorder_images(request: Request, product_id: int, images: list[str], db: AsyncSession = Depends(get_db)):
+    """Обновить порядок изображений товара - только для админов"""
+    if not await verify_admin_access(request):
+        raise HTTPException(status_code=403, detail="Доступ запрещён. Только для администраторов.")
     product = await db.get(Product, product_id)
     if not product:
         raise HTTPException(status_code=404, detail="Товар не найден")
@@ -205,8 +238,10 @@ class ProductReorder(BaseModel):
 
 
 @router.post("/reorder")
-async def reorder_products(items: list[ProductReorder], db: AsyncSession = Depends(get_db)):
-    """Массовое изменение порядка товаров"""
+async def reorder_products(request: Request, items: list[ProductReorder], db: AsyncSession = Depends(get_db)):
+    """Массовое изменение порядка товаров - только для админов"""
+    if not await verify_admin_access(request):
+        raise HTTPException(status_code=403, detail="Доступ запрещён. Только для администраторов.")
     for item in items:
         product = await db.get(Product, item.product_id)
         if product:
@@ -218,8 +253,10 @@ async def reorder_products(items: list[ProductReorder], db: AsyncSession = Depen
 
 
 @router.get("/{product_id}/full")
-async def get_product_full(product_id: int, db: AsyncSession = Depends(get_db)):
-    """Получить полную информацию о товаре включая категорию и аукцион"""
+async def get_product_full(request: Request, product_id: int, db: AsyncSession = Depends(get_db)):
+    """Получить полную информацию о товаре включая категорию и аукцион - только для админов"""
+    if not await verify_admin_access(request):
+        raise HTTPException(status_code=403, detail="Доступ запрещён. Только для администраторов.")
     product = await db.get(Product, product_id)
     if not product:
         raise HTTPException(status_code=404, detail="Товар не найден")
@@ -252,3 +289,28 @@ async def get_product_full(product_id: int, db: AsyncSession = Depends(get_db)):
     result_dict["auction_info"] = auction_info
     
     return result_dict
+
+# Публичный эндпоинт для витрины (доступен всем)
+@router.get("/public/", response_model=list[ProductOut])
+async def list_products_public(
+    status: str | None = None,
+    category_id: int | None = None,
+    category_slug: str | None = None,
+    db: AsyncSession = Depends(get_db)
+):
+    """Получить список товаров для витрины - доступно всем"""
+    query = select(Product).where(Product.status == ProductStatus.IN_STOCK.value)
+
+    if category_id:
+        query = query.where(Product.category_id == category_id)
+    if category_slug:
+        cat_result = await db.execute(select(Category.id).where(Category.slug == category_slug))
+        cat_id = cat_result.scalar()
+        if cat_id:
+            query = query.where(Product.category_id == cat_id)
+
+    query = query.order_by(Product.sort_order, Product.created_at)
+    result = await db.execute(query)
+    products = result.scalars().all()
+
+    return [product_to_out(p) for p in products]

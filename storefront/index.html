@@ -354,6 +354,11 @@
         </div>
       </div>
 
+      <!-- Категории (теги с горизонтальной прокруткой) -->
+      <div id="categoriesContainer" style="margin-bottom: 16px; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; scrollbar-width: none; -ms-overflow-style: none;">
+        <div id="categoriesList" style="display: inline-flex; gap: 8px; padding: 4px 0;"></div>
+      </div>
+
       <div id="catalog" class="catalog"></div>
     </div>
 
@@ -395,8 +400,9 @@
       const CONFIG = window.APP_CONFIG || {};
       const API_BASE = CONFIG.API_BASE || "/api/";
       const MEDIA_BASE = CONFIG.MEDIA_BASE || "/api/media/";
-      const PRODUCTS_ENDPOINT = CONFIG.PRODUCTS_ENDPOINT || "/products/";
-      const ADMIN_USERNAME = "katerinkaexbro";
+      const PRODUCTS_ENDPOINT = CONFIG.PRODUCTS_ENDPOINT || "/products/public/";
+      const CATEGORIES_ENDPOINT = CONFIG.CATEGORIES_ENDPOINT || "/categories/";
+      const ADMIN_USERNAME = "katerinka_exbro";
 
       function escapeHtml(value) {
         return String(value ?? "")
@@ -406,6 +412,49 @@
           .replaceAll('"', "&quot;")
           .replaceAll("'", "&#039;");
       }
+
+      // Загрузка и отображение категорий
+      async function loadCategories() {
+        try {
+          const response = await fetch(`${API_BASE}${CATEGORIES_ENDPOINT}`);
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          const categories = await response.json();
+
+          const container = document.getElementById("categoriesList");
+          if (!Array.isArray(categories) || categories.length === 0) {
+            return;
+          }
+
+          // Добавляем тег "Все" для сброса фильтра
+          const allTagHtml = `<div class=\"category-tag active\" data-category-id=\"\">Все</div>`;
+          container.insertAdjacentHTML("beforeend", allTagHtml);
+
+          // Добавляем остальные категории
+          categories.forEach(cat => {
+            const tagHtml = `<div class=\"category-tag\" data-category-id=\"${cat.id}\">${escapeHtml(cat.name)}</div>`;
+            container.insertAdjacentHTML("beforeend", tagHtml);
+          });
+
+          // Добавляем обработчики кликов
+          container.querySelectorAll(".category-tag").forEach(tag => {
+            tag.addEventListener("click", function() {
+              // Снимаем активный класс со всех тегов
+              container.querySelectorAll(".category-tag").forEach(t => t.classList.remove("active"));
+              // Добавляем активный класс нажатому тегу
+              this.classList.add("active");
+              // Фильтруем товары
+              const categoryId = this.getAttribute("data-category-id");
+              filterProducts(categoryId);
+            });
+          });
+        } catch (error) {
+          console.error("Ошибка загрузки категорий:", error);
+        }
+      }
+
+      let allProducts = [];
 
       function statusMeta(status) {
         if (status === "in_stock") {
@@ -537,6 +586,7 @@
           }
 
           const products = await response.json();
+          allProducts = products;
           renderProducts(products);
         } catch (error) {
           console.error(error);
@@ -544,6 +594,17 @@
         }
       }
 
+      function filterProducts(categoryId) {
+        if (!categoryId || categoryId === "") {
+          renderProducts(allProducts);
+        } else {
+          const filtered = allProducts.filter(p => p.category_id == categoryId);
+          renderProducts(filtered);
+        }
+      }
+
+      // Загружаем категории и товары
+      loadCategories();
       loadProducts();
     </script>
   </body>
