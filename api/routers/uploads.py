@@ -4,7 +4,7 @@ import shutil
 import uuid
 import io
 
-from config import settings
+from api.config import settings
 
 router = APIRouter(prefix="/upload", tags=["upload"])
 
@@ -12,7 +12,7 @@ router = APIRouter(prefix="/upload", tags=["upload"])
 MEDIA_DIR = settings.MEDIA_ROOT / "images"
 MEDIA_DIR.mkdir(parents=True, exist_ok=True)
 
-ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp"}
+ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}
 
 
 @router.post("/images")
@@ -36,11 +36,17 @@ async def upload_images(files: list[UploadFile] = File(...)):
             content_type = 'image/png'
         elif ext == '.webp':
             content_type = 'image/webp'
+        elif ext in ['.heic', '.heif']:
+            content_type = 'image/heic'  # Сохраняем HEIC как есть, конвертация на клиенте или позже
         else:
             # Если расширение не узнаваемо, используем content-type из запроса
             content_type = file.content_type or ""
         
-        if content_type not in ALLOWED_TYPES:
+        # Разрешаем загрузку, если тип поддерживается ИЛИ это мобильный формат (HEIC)
+        # Мобильные браузеры могут отправлять HEIC без правильного content-type
+        is_allowed = content_type in ALLOWED_TYPES or ext in ['.heic', '.heif']
+        
+        if not is_allowed:
             raise HTTPException(400, f"Unsupported file type: {content_type or 'unknown'} (filename: {filename})")
 
         if not ext:
@@ -51,6 +57,8 @@ async def upload_images(files: list[UploadFile] = File(...)):
                 ext = '.png'
             elif content_type == 'image/webp':
                 ext = '.webp'
+            elif content_type == 'image/heic':
+                ext = '.heic'
             else:
                 ext = '.jpg'
         

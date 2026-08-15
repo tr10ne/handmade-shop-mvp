@@ -1,11 +1,11 @@
 from fastapi import FastAPI, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from contextlib import asynccontextmanager
-from config import settings
+from api.config import settings
 from pathlib import Path
 
-from database import engine, Base, get_db
-from routers import products, categories, auctions, uploads
+from api.database import engine, Base, get_db
+from api.routers import products, categories, auctions, uploads
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
