@@ -2,7 +2,6 @@ from fastapi import APIRouter, UploadFile, File, HTTPException, Form
 from pathlib import Path
 import shutil
 import uuid
-import io
 
 from api.config import settings
 
@@ -13,6 +12,7 @@ MEDIA_DIR = settings.MEDIA_ROOT / "images"
 MEDIA_DIR.mkdir(parents=True, exist_ok=True)
 
 ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}
+ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif'}
 
 
 @router.post("/images")
@@ -42,25 +42,25 @@ async def upload_images(files: list[UploadFile] = File(...)):
             # Если расширение не узнаваемо, используем content-type из запроса
             content_type = file.content_type or ""
         
-        # Разрешаем загрузку, если тип поддерживается ИЛИ это мобильный формат (HEIC)
-        # Мобильные браузеры могут отправлять HEIC без правильного content-type
-        is_allowed = content_type in ALLOWED_TYPES or ext in ['.heic', '.heif']
+        # Разрешаем загрузку, если расширение файла поддерживается
+        # Мобильные браузеры могут отправлять файлы без правильного content-type
+        is_allowed = ext.lower() in ALLOWED_EXTENSIONS
         
         if not is_allowed:
-            raise HTTPException(400, f"Unsupported file type: {content_type or 'unknown'} (filename: {filename})")
+            raise HTTPException(400, f"Unsupported file type: {ext or 'unknown'} (filename: {filename})")
 
         if not ext:
             # Если расширения нет, добавляем по типу контента
-            if content_type == 'image/jpeg':
+            if content_type == 'image/jpeg' or content_type.startswith('image/jpg'):
                 ext = '.jpg'
             elif content_type == 'image/png':
                 ext = '.png'
             elif content_type == 'image/webp':
                 ext = '.webp'
-            elif content_type == 'image/heic':
+            elif content_type in ['image/heic', 'image/heif']:
                 ext = '.heic'
             else:
-                ext = '.jpg'
+                ext = '.jpg'  # По умолчанию JPG для совместимости
         
         safe_name = f"{uuid.uuid4().hex}{ext}"
         save_path = MEDIA_DIR / safe_name
