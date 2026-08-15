@@ -2,8 +2,11 @@ from fastapi import APIRouter, UploadFile, File, HTTPException, Form
 from pathlib import Path
 import shutil
 import uuid
+import logging
 
 from config import settings
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/upload", tags=["upload"])
 
@@ -28,6 +31,8 @@ async def upload_images(files: list[UploadFile] = File(...)):
         filename = file.filename or ""
         ext = Path(filename).suffix.lower()
         
+        logger.info(f"Processing file: filename={filename}, ext={ext}, content_type={file.content_type}")
+        
         # Сначала пробуем определить тип по расширению файла (важно для мобильных)
         content_type = ""
         if ext in ['.jpg', '.jpeg']:
@@ -47,6 +52,7 @@ async def upload_images(files: list[UploadFile] = File(...)):
         is_allowed = ext.lower() in ALLOWED_EXTENSIONS
         
         if not is_allowed:
+            logger.warning(f"Unsupported file type: {ext or 'unknown'} (filename: {filename})")
             raise HTTPException(400, f"Unsupported file type: {ext or 'unknown'} (filename: {filename})")
 
         if not ext:
@@ -66,14 +72,20 @@ async def upload_images(files: list[UploadFile] = File(...)):
         save_path = MEDIA_DIR / safe_name
 
         try:
+            logger.info(f"Saving file to: {save_path}")
             with save_path.open("wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
             
             # Проверяем что файл действительно сохранился
             if not save_path.exists():
+                logger.error(f"Failed to save file: {safe_name}")
                 raise HTTPException(500, f"Failed to save file: {safe_name}")
+            
+            file_size = save_path.stat().st_size
+            logger.info(f"File saved successfully: {safe_name}, size: {file_size} bytes")
                 
         except Exception as e:
+            logger.error(f"Error saving file: {str(e)}", exc_info=True)
             raise HTTPException(500, f"Error saving file: {str(e)}")
 
         # Формируем URL с использованием MEDIA_URL из настроек
@@ -83,7 +95,9 @@ async def upload_images(files: list[UploadFile] = File(...)):
             "url": f"{settings.MEDIA_URL}/images/{safe_name}"
         })
 
-    return {
+    result = {
         "count": len(uploaded),
         "files": uploaded
     }
+    logger.info(f"Upload complete: {result}")
+    return result
