@@ -7,8 +7,8 @@ import json
 import os
 import asyncio
 
-from database import get_db
-from models import Product, ProductAuction, AuctionBid, User, ProductStatus
+from api.database import get_db
+from api.models import Product, ProductAuction, AuctionBid, User, ProductStatus
 
 
 router = APIRouter(prefix="/auctions", tags=["auctions"])
