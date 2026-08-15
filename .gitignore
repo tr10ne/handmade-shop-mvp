@@ -22,6 +22,8 @@ node_modules/
 dist/
 build/
 target/
+media/images/
+data/*.db
 
 # Editors
 .vscode/
