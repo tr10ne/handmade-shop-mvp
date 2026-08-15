@@ -49,6 +49,7 @@ class ProductUpdate(BaseModel):
     images: list[str] | None = None
     category_id: int | None = None
     sort_order: int | None = None
+    is_auction: bool | None = None
 
 
 def product_to_out(p: Product) -> ProductOut:
@@ -181,3 +182,17 @@ async def reorder_product(product_id: int, sort_order: int, db: AsyncSession = D
     await db.refresh(product)
     
     return {"ok": True, "sort_order": sort_order}
+
+
+@router.put("/{product_id}/images/reorder")
+async def reorder_images(product_id: int, images: list[str], db: AsyncSession = Depends(get_db)):
+    """Обновить порядок изображений товара"""
+    product = await db.get(Product, product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail="Товар не найден")
+    
+    product.images = json.dumps(images)
+    await db.commit()
+    await db.refresh(product)
+    
+    return {"ok": True, "images": images}

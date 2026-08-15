@@ -45,6 +45,12 @@ class CategoryUpdate(BaseModel):
     is_active: bool | None = None
 
 
+class ProductReorder(BaseModel):
+    """Модель для изменения порядка товаров"""
+    product_id: int
+    sort_order: int
+
+
 def category_to_out(category: Category, product_count: int = 0) -> CategoryOut:
     return CategoryOut(
         id=category.id,
@@ -174,6 +180,24 @@ async def get_category_products(category_id: int, db: AsyncSession = Depends(get
             "status": p.status,
             "images": json.loads(p.images) if p.images else [],
             "category_id": p.category_id,
+            "sort_order": p.sort_order,
         })
     
     return product_list
+
+
+@router.post("/{category_id}/products/reorder")
+async def reorder_category_products(category_id: int, items: list[ProductReorder], db: AsyncSession = Depends(get_db)):
+    """Массовое изменение порядка товаров в категории"""
+    category = await db.get(Category, category_id)
+    if not category:
+        raise HTTPException(status_code=404, detail="Категория не найдена")
+    
+    for item in items:
+        product = await db.get(Product, item.product_id)
+        if product and product.category_id == category_id:
+            product.sort_order = item.sort_order
+    
+    await db.commit()
+    
+    return {"ok": True, "message": f"Обновлено {len(items)} товаров"}

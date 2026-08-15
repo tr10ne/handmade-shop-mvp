@@ -86,6 +86,7 @@
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
         gap: 18px;
+        align-items: stretch;
       }
 
       .card {
@@ -96,6 +97,7 @@
         border: 1px solid var(--border);
         display: flex;
         flex-direction: column;
+        height: 100%;
       }
 
       .slider-container {
@@ -169,6 +171,7 @@
         padding: 16px;
         display: grid;
         gap: 10px;
+        flex-grow: 1;
       }
 
       .card-header {
@@ -182,6 +185,42 @@
         font-size: 18px;
         font-weight: 700;
         line-height: 1.25;
+        flex-grow: 1;
+      }
+
+      .card-desc {
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.45;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+
+      .card-desc.full {
+        display: block;
+        -webkit-line-clamp: unset;
+        -webkit-box-orient: unset;
+        overflow: visible;
+      }
+
+      .read-more {
+        color: var(--accent);
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 13px;
+        text-decoration: underline;
+        margin-top: 4px;
+        display: inline-block;
+      }
+
+      .card-status-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-top: 4px;
       }
 
       .card-price {
@@ -189,12 +228,6 @@
         color: var(--accent);
         font-size: 18px;
         font-weight: 700;
-      }
-
-      .card-desc {
-        color: var(--muted);
-        font-size: 14px;
-        line-height: 1.45;
       }
 
       .card-status {
@@ -235,6 +268,52 @@
         text-align: center;
       }
 
+      .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.6);
+        display: none;
+        place-items: center;
+        z-index: 1000;
+        padding: 20px;
+      }
+
+      .modal-overlay.active {
+        display: grid;
+      }
+
+      .modal {
+        background: var(--card);
+        border-radius: var(--radius);
+        padding: 24px;
+        max-width: 500px;
+        width: 100%;
+        max-height: 80vh;
+        overflow-y: auto;
+        box-shadow: var(--shadow);
+      }
+
+      .modal-title {
+        font-size: 20px;
+        font-weight: 700;
+        margin-bottom: 12px;
+      }
+
+      .modal-desc {
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 1.6;
+        white-space: pre-wrap;
+      }
+
+      .modal-close {
+        margin-top: 16px;
+        width: 100%;
+      }
+
       @media (max-width: 640px) {
         body {
           padding: 12px;
@@ -244,6 +323,9 @@
         }
         .slider-container {
           height: 240px;
+        }
+        .modal {
+          padding: 18px;
         }
       }
     </style>
@@ -273,6 +355,15 @@
       </div>
 
       <div id="catalog" class="catalog"></div>
+    </div>
+
+    <!-- Модальное окно для полного описания -->
+    <div id="modalOverlay" class="modal-overlay">
+      <div class="modal">
+        <div id="modalTitle" class="modal-title"></div>
+        <div id="modalDesc" class="modal-desc"></div>
+        <button class="btn-order modal-close" onclick="closeModal()">Закрыть</button>
+      </div>
     </div>
 
     <script src="./config.js"></script>
@@ -348,6 +439,21 @@
         return `https://t.me/${ADMIN_USERNAME}?text=${encodeURIComponent(text)}`;
       }
 
+      function closeModal() {
+        const overlay = document.getElementById("modalOverlay");
+        overlay.classList.remove("active");
+      }
+
+      function openModal(title, description) {
+        const overlay = document.getElementById("modalOverlay");
+        const titleEl = document.getElementById("modalTitle");
+        const descEl = document.getElementById("modalDesc");
+        
+        titleEl.textContent = title;
+        descEl.textContent = description || "Описание отсутствует";
+        overlay.classList.add("active");
+      }
+
       function renderProducts(products) {
         const container = document.getElementById("catalog");
         container.innerHTML = "";
@@ -361,6 +467,13 @@
           const { text, className } = statusMeta(product.status);
           const { imagesHtml, dotsHtml } = buildImageSlides(product, pIndex);
           const orderUrl = buildOrderUrl(product);
+          
+          // Проверяем, нужно ли показывать кнопку "Подробнее"
+          const description = product.description || "";
+          const needsReadMore = description.length > 100;
+          const readMoreButton = needsReadMore 
+            ? `<div class="read-more" onclick="openModal('${escapeHtml(product.title)}', '${escapeHtml(description).replace(/'/g, "\\'")}')">Подробнее</div>`
+            : "";
 
           const cardHtml = `
           <article class="card">
@@ -368,17 +481,21 @@
               <div class="slider" id="slider-${pIndex}" onscroll="updateDots(${pIndex}, this)">
                 ${imagesHtml}
               </div>
-              ${dotsHtml ? `<div class="slider-dots" id="dots-${pIndex}">${dotsHtml}</div>` : ""}
+              ${dotsHtml ? `<div class="slider-dots" id="dots-${pIndex}\">${dotsHtml}</div>` : ""}
             </div>
 
             <div class="card-info">
               <div class="card-header">
                 <div class="card-title">${escapeHtml(product.title)}</div>
-                <div class="card-price">${product.price != null ? `${product.price} руб` : "—"}</div>
               </div>
 
-              <div class="card-desc">${escapeHtml(product.description || "")}</div>
-              <div class="card-status ${className}">${text}</div>
+              <div class="card-desc">${escapeHtml(description.substring(0, 100))}${needsReadMore ? "..." : ""}</div>
+              ${readMoreButton}
+              
+              <div class="card-status-row">
+                <div class="card-status ${className}">${text}</div>
+                <div class="card-price">${product.price != null ? `${product.price} руб` : "—"}</div>
+              </div>
 
               <a href="${orderUrl}" target="_blank" rel="noopener noreferrer" class="btn-order">Заказать</a>
             </div>
