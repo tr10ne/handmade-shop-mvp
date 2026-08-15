@@ -795,7 +795,8 @@
             );
 
             if (!response.ok) {
-              throw new Error(`HTTP ${response.status}`);
+              const errorText = await response.text();
+              throw new Error(`HTTP ${response.status}: ${errorText}`);
             }
 
             const data = await response.json();
@@ -815,8 +816,8 @@
             input.value = "";
             setMessage(`Загружено изображений: ${uploadedPaths.length}`);
           } catch (error) {
-            console.error(error);
-            setMessage("Ошибка загрузки изображений", true);
+            console.error('Ошибка загрузки:', error);
+            setMessage("Ошибка загрузки изображений: " + error.message, true);
           }
         });
 
@@ -900,11 +901,16 @@
           updateImagesPreview();
           setMessage('Редактирование товара #' + id);
           
-          // Прокрутка к форме товара
-          document.getElementById("productForm").scrollIntoView({ behavior: 'smooth', block: 'start' });
+          // Прокрутка к форме товара с фиксацией положения
+          const formElement = document.getElementById("productForm");
+          formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          
+          // Добавляем визуальный индикатор режима редактирования
+          formElement.style.border = '2px solid var(--accent)';
+          formElement.style.transition = 'border 0.3s ease';
         } catch (e) {
-          console.error(e);
-          setMessage('Ошибка загрузки товара', true);
+          console.error('Ошибка при загрузке товара:', e);
+          setMessage('Ошибка загрузки товара: ' + e.message, true);
         }
       };
 

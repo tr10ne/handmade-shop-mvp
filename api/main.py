@@ -3,6 +3,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from contextlib import asynccontextmanager
 from api.config import settings
 from pathlib import Path
+import logging
+
+# Настройка логирования
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 
 from api.database import engine, Base, get_db
 from api.routers import products, categories, auctions, uploads
