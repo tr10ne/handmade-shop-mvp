@@ -1,16 +1,64 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from pydantic import BaseModel, Field
 from datetime import datetime, timedelta
 import json
 import os
+import asyncio
 
 from database import get_db
 from models import Product, ProductAuction, AuctionBid, User, ProductStatus
 
 
 router = APIRouter(prefix="/auctions", tags=["auctions"])
+
+# Хранилище для фоновых задач (в production лучше использовать Redis/Celery)
+active_auction_tasks: dict[int, asyncio.Task] = {}
+
+
+async def check_and_complete_auctions(db: AsyncSession):
+    """Фоновая задача для проверки и завершения истекших аукционов"""
+    now = datetime.utcnow()
+    
+    query = select(ProductAuction).where(
+        ProductAuction.status == "active",
+        ProductAuction.end_time <= now
+    )
+    result = await db.execute(query)
+    expired_auctions = result.scalars().all()
+    
+    for auction in expired_auctions:
+        # Находим максимальную ставку
+        bid_query = select(AuctionBid).where(
+            AuctionBid.auction_id == auction.id
+        ).order_by(AuctionBid.amount.desc())
+        bid_result = await db.execute(bid_query)
+        highest_bid = bid_result.scalars().first()
+        
+        if highest_bid:
+            auction.winner_id = highest_bid.user_id
+            auction.status = "sold"
+            
+            # Обновляем товар
+            product = await db.get(Product, auction.product_id)
+            if product:
+                product.status = ProductStatus.SOLD.value
+                product.is_auction = False
+        else:
+            auction.status = "ended"
+            # Возвращаем товар в обычный статус
+            product = await db.get(Product, auction.product_id)
+            if product:
+                product.status = ProductStatus.IN_STOCK.value
+                product.is_auction = False
+        
+        await db.commit()
+        
+        # TODO: Здесь можно добавить отправку уведомления в Telegram
+        # await notify_auction_ended(auction, highest_bid)
+    
+    return len(expired_auctions)
 
 
 class AuctionOut(BaseModel):
@@ -76,7 +124,7 @@ def auction_to_out(auction: ProductAuction, bids_count: int = 0) -> AuctionOut:
 
 
 @router.post("/", response_model=AuctionOut, status_code=status.HTTP_201_CREATED)
-async def create_auction(payload: AuctionCreate, db: AsyncSession = Depends(get_db)):
+async def create_auction(payload: AuctionCreate, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     """Создать аукцион для товара"""
     # Проверка товара
     product = await db.get(Product, payload.product_id)
@@ -114,8 +162,23 @@ async def create_auction(payload: AuctionCreate, db: AsyncSession = Depends(get_
     await db.commit()
     await db.refresh(auction)
     
+    # Запускаем фоновую задачу для мониторинга окончания аукциона
+    # В production лучше использовать Celery/Redis
+    background_tasks.add_task(monitor_auction_end, auction.id, (end_time - now).total_seconds())
+    
     # Получаем количество ставок (0 для нового аукциона)
     return auction_to_out(auction, 0)
+
+
+async def monitor_auction_end(auction_id: int, delay_seconds: float):
+    """Фоновая задача для мониторинга окончания аукциона"""
+    await asyncio.sleep(delay_seconds)
+    # После пробуждения проверяем и завершаем аукцион
+    # Примечание: в production используйте более надежное решение (Celery beat, Redis streams)
+    from database import get_db_session
+    async for db in get_db_session():
+        await check_and_complete_auctions(db)
+        break
 
 
 @router.get("/", response_model=list[AuctionOut])

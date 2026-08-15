@@ -243,6 +243,58 @@
 
       <div class="grid">
         <section class="card">
+          <h2>Управление категориями</h2>
+          <form id="categoryForm" class="form-grid">
+            <input type="hidden" id="categoryId" value="" />
+            
+            <label>
+              Название категории
+              <input id="categoryName" type="text" required maxlength="100" />
+            </label>
+
+            <label>
+              Slug (URL-friendly название)
+              <input id="categorySlug" type="text" required maxlength="100" pattern="[a-z0-9\-]+" placeholder="toys, bags, accessories" />
+            </label>
+
+            <label>
+              Описание
+              <textarea id="categoryDescription"></textarea>
+            </label>
+
+            <label>
+              Иконка (путь к изображению)
+              <input id="categoryIcon" type="text" placeholder="icons/toys.png" />
+            </label>
+
+            <div class="row">
+              <label>
+                Порядок сортировки
+                <input id="categorySortOrder" type="number" value="0" />
+              </label>
+
+              <label>
+                Активна
+                <select id="categoryIsActive">
+                  <option value="true">Да</option>
+                  <option value="false">Нет</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="actions">
+              <button class="btn-primary" type="submit">Сохранить категорию</button>
+              <button class="btn-secondary" type="button" id="clearCategoryFormBtn">Очистить</button>
+            </div>
+
+            <div id="categoryMessage" class="msg"></div>
+          </form>
+
+          <h3 style="margin-top: 20px;">Список категорий</h3>
+          <div id="categoriesList" class="list"></div>
+        </section>
+
+        <section class="card">
           <h2>Добавить товар</h2>
           <p class="hint">
             Поле <code>images</code> можно заполнять вручную или через загрузку.
@@ -260,6 +312,13 @@
               <textarea id="description"></textarea>
             </label>
 
+            <label>
+              Категория
+              <select id="productCategory">
+                <option value="">Без категории</option>
+              </select>
+            </label>
+
             <div class="row">
               <label>
                 Цена
@@ -271,6 +330,9 @@
                 <select id="status">
                   <option value="in_stock">В наличии</option>
                   <option value="order">Под заказ</option>
+                  <option value="auction">Аукцион</option>
+                  <option value="sold">Продано</option>
+                  <option value="reserved">Забронировано</option>
                 </select>
               </label>
             </div>
