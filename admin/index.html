@@ -428,6 +428,46 @@
       </div>
 
       <section class="card">
+        <h2>Управление аукционами</h2>
+        <div id="auctionsSection">
+          <form id="auctionForm" class="form-grid" style="margin-bottom: 20px;">
+            <label>
+              Товар для аукциона
+              <select id="auctionProduct" required>
+                <option value="">Выберите товар</option>
+              </select>
+            </label>
+
+            <div class="row">
+              <label>
+                Начальная цена
+                <input id="auctionStartPrice" type="number" min="1" step="1" required />
+              </label>
+
+              <label>
+                Минимальный шаг ставки
+                <input id="auctionMinIncrement" type="number" min="1" step="1" value="100" />
+              </label>
+            </div>
+
+            <label>
+              Длительность (часов)
+              <input id="auctionDuration" type="number" min="1" max="720" value="48" />
+            </label>
+
+            <div class="actions">
+              <button class="btn-primary" type="submit">Запустить аукцион</button>
+            </div>
+
+            <div id="auctionMessage" class="msg"></div>
+          </form>
+
+          <h3>Активные аукционы</h3>
+          <div id="activeAuctionsList" class="list"></div>
+        </div>
+      </section>
+
+      <section class="card">
         <h2>Текущие товары</h2>
         <div id="productsList" class="list"></div>
       </section>
@@ -653,7 +693,9 @@
               : null,
             status: document.getElementById("status").value,
             images: parseImages(document.getElementById("images").value),
-            category_id: null,
+            category_id: document.getElementById("productCategory").value
+              ? parseInt(document.getElementById("productCategory").value)
+              : null,
           };
 
           try {
@@ -688,8 +730,406 @@
         .getElementById("images")
         .addEventListener("input", updateImagesPreview);
 
+      // === КАТЕГОРИИ ===
+      function setCategoryMessage(text, isError = false) {
+        const el = document.getElementById("categoryMessage");
+        el.textContent = text;
+        el.style.color = isError ? "#b74d4d" : "#2f7a43";
+      }
+
+      async function loadCategories() {
+        const list = document.getElementById("categoriesList");
+        list.innerHTML = '<div class="hint">Загружаем категории...</div>';
+
+        try {
+          const response = await fetchWithTimeout(`${API_BASE}/categories/`);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          
+          const categories = await response.json();
+          
+          if (!Array.isArray(categories) || !categories.length) {
+            list.innerHTML = '<div class="hint">Категорий пока нет</div>';
+            return;
+          }
+          
+          list.innerHTML = '';
+          
+          categories.forEach(cat => {
+            const item = document.createElement('div');
+            item.className = 'item';
+            
+            item.innerHTML = `
+              <div class="item-head">
+                <div>
+                  <div class="item-title">${escapeHtml(cat.name)} ${cat.icon ? `<span title="Иконка">🖼️</span>` : ''}</div>
+                  <div class="item-meta">
+                    Slug: ${escapeHtml(cat.slug)} · Товаров: ${cat.product_count} · Порядок: ${cat.sort_order}
+                  </div>
+                  ${cat.description ? `<div class="item-meta">${escapeHtml(cat.description)}</div>` : ''}
+                </div>
+                <div class="item-actions">
+                  <button class="btn-secondary" onclick="editCategory(${cat.id})">Ред.</button>
+                  <button class="btn-danger" onclick="deleteCategory(${cat.id})">Удалить</button>
+                </div>
+              </div>
+            `;
+            
+            list.appendChild(item);
+          });
+        } catch (e) {
+          console.error(e);
+          list.innerHTML = '<div class="hint">Не удалось загрузить категории</div>';
+        }
+      }
+
+      window.editCategory = async function(id) {
+        try {
+          const response = await fetchWithTimeout(`${API_BASE}/categories/${id}`);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          
+          const cat = await response.json();
+          
+          document.getElementById("categoryId").value = cat.id;
+          document.getElementById("categoryName").value = cat.name;
+          document.getElementById("categorySlug").value = cat.slug;
+          document.getElementById("categoryDescription").value = cat.description || '';
+          document.getElementById("categoryIcon").value = cat.icon || '';
+          document.getElementById("categorySortOrder").value = cat.sort_order;
+          document.getElementById("categoryIsActive").value = String(cat.is_active);
+          
+          setCategoryMessage('Редактирование категории #' + id);
+        } catch (e) {
+          console.error(e);
+          setCategoryMessage('Ошибка загрузки категории', true);
+        }
+      };
+
+      window.deleteCategory = async function(id) {
+        if (!confirm('Удалить эту категорию? Товары останутся без категории.')) return;
+        
+        try {
+          const response = await fetchWithTimeout(`${API_BASE}/categories/${id}`, {
+            method: 'DELETE'
+          });
+          
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          
+          setCategoryMessage('Категория удалена');
+          loadCategories();
+          loadCategoriesForProduct();
+        } catch (e) {
+          console.error(e);
+          setCategoryMessage('Ошибка удаления категории', true);
+        }
+      };
+
+      async function loadCategoriesForProduct() {
+        try {
+          const response = await fetchWithTimeout(`${API_BASE}/categories/`);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          
+          const categories = await response.json();
+          const select = document.getElementById("productCategory");
+          const currentVal = select.value;
+          
+          select.innerHTML = '<option value="">Без категории</option>';
+          
+          categories.forEach(cat => {
+            if (cat.is_active) {
+              const opt = document.createElement('option');
+              opt.value = cat.id;
+              opt.textContent = cat.name;
+              select.appendChild(opt);
+            }
+          });
+          
+          if (currentVal) select.value = currentVal;
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      // Функция транслитерации кириллицы в латиницу
+      function transliterateToSlug(text) {
+        const cyrillicMap = {
+          'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'yo', 'ж': 'zh',
+          'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm', 'н': 'n', 'о': 'o',
+          'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u', 'ф': 'f', 'х': 'h', 'ц': 'ts',
+          'ч': 'ch', 'ш': 'sh', 'щ': 'sch', 'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu',
+          'я': 'ya'
+        };
+        
+        return text.toLowerCase()
+          .split('')
+          .map(char => cyrillicMap[char] || char)
+          .join('')
+          .replace(/[^a-z0-9\-]/g, '-')  // заменяем все нежелательные символы на дефис
+          .replace(/-+/g, '-')           // убираем множественные дефисы
+          .replace(/^-|-$/g, '');        // убираем дефисы по краям
+      }
+
+      // Автогенерация slug при вводе названия категории
+      document.getElementById("categoryName").addEventListener("input", function(e) {
+        const slugField = document.getElementById("categorySlug");
+        // Генерируем slug только если поле slug пустое или пользователь ещё не редактировал его вручную
+        if (!slugField.value || slugField.value === transliterateToSlug(this.value.substring(0, this.value.length - 1))) {
+          slugField.value = transliterateToSlug(this.value);
+        }
+      });
+
+      document
+        .getElementById("categoryForm")
+        .addEventListener("submit", async (e) => {
+          e.preventDefault();
+          
+          const categoryId = document.getElementById("categoryId").value;
+          const payload = {
+            name: document.getElementById("categoryName").value.trim(),
+            slug: document.getElementById("categorySlug").value.trim(),
+            description: document.getElementById("categoryDescription").value.trim() || null,
+            icon: document.getElementById("categoryIcon").value.trim() || null,
+            sort_order: parseInt(document.getElementById("categorySortOrder").value) || 0,
+            is_active: document.getElementById("categoryIsActive").value === "true"
+          };
+          
+          if (!payload.name || !payload.slug) {
+            setCategoryMessage('Название и slug обязательны', true);
+            return;
+          }
+          
+          try {
+            setCategoryMessage('Сохраняем...');
+            
+            let url = `${API_BASE}/categories/`;
+            let method = 'POST';
+            
+            if (categoryId) {
+              url = `${API_BASE}/categories/${categoryId}`;
+              method = 'PUT';
+            }
+            
+            const response = await fetchWithTimeout(url, {
+              method: method,
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+            
+            if (!response.ok) {
+              const err = await response.json().catch(() => ({}));
+              throw new Error(err.detail || `HTTP ${response.status}`);
+            }
+            
+            const result = await response.json();
+            setCategoryMessage(`Категория "${result.name}" сохранена!`);
+            
+            document.getElementById("categoryForm").reset();
+            document.getElementById("categoryId").value = '';
+            loadCategories();
+            loadCategoriesForProduct();
+          } catch (error) {
+            console.error(error);
+            setCategoryMessage(error.message || 'Ошибка сохранения категории', true);
+          }
+        });
+
+      document
+        .getElementById("clearCategoryFormBtn")
+        .addEventListener("click", () => {
+          document.getElementById("categoryForm").reset();
+          document.getElementById("categoryId").value = '';
+          setCategoryMessage('');
+        });
+
+      // === АУКЦИОНЫ ===
+      function setAuctionMessage(text, isError = false) {
+        const el = document.getElementById("auctionMessage");
+        el.textContent = text;
+        el.style.color = isError ? "#b74d4d" : "#2f7a43";
+      }
+
+      async function loadProductsForAuction() {
+        try {
+          const response = await fetchWithTimeout(`${API_BASE}${PRODUCTS_ENDPOINT}`);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          
+          const products = await response.json();
+          const select = document.getElementById("auctionProduct");
+          const currentVal = select.value;
+          
+          select.innerHTML = '<option value="">Выберите товар</option>';
+          
+          products.forEach(p => {
+            if (p.status !== 'sold' && !p.is_auction) {
+              const opt = document.createElement('option');
+              opt.value = p.id;
+              opt.textContent = `${p.title} (${p.price || '?'} руб)`;
+              select.appendChild(opt);
+            }
+          });
+          
+          if (currentVal) select.value = currentVal;
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      async function loadActiveAuctions() {
+        const list = document.getElementById("activeAuctionsList");
+        list.innerHTML = '<div class="hint">Загружаем аукционы...</div>';
+        
+        try {
+          const response = await fetchWithTimeout(`${API_BASE}/auctions/?status_filter=active`);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          
+          const auctions = await response.json();
+          
+          if (!Array.isArray(auctions) || !auctions.length) {
+            list.innerHTML = '<div class="hint">Нет активных аукционов</div>';
+            return;
+          }
+          
+          list.innerHTML = '';
+          
+          auctions.forEach(auction => {
+            const item = document.createElement('div');
+            item.className = 'item';
+            
+            const endTime = new Date(auction.end_time);
+            const now = new Date();
+            const timeLeft = auction.time_remaining_seconds || 0;
+            
+            let timeLeftText = '';
+            if (timeLeft > 0) {
+              const hours = Math.floor(timeLeft / 3600);
+              const minutes = Math.floor((timeLeft % 3600) / 60);
+              const seconds = timeLeft % 60;
+              timeLeftText = `${hours}ч ${minutes}м ${seconds}с`;
+            } else {
+              timeLeftText = 'Завершен';
+            }
+            
+            item.innerHTML = `
+              <div class="item-head">
+                <div>
+                  <div class="item-title">${escapeHtml(auction.product_title)}</div>
+                  <div class="item-meta">
+                    ID: ${auction.id} · Старт: ${auction.start_price} руб · Текущая: ${auction.current_bid || '—'} руб
+                  </div>
+                  <div class="item-meta">
+                    Ставок: ${auction.bids_count} · Осталось: ${timeLeftText}
+                  </div>
+                </div>
+                <div class="item-actions">
+                  <button class="btn-secondary" data-auction-id="${auction.id}" onclick="viewAuctionBids(${auction.id})">Ставки</button>
+                  <button class="btn-danger" data-auction-id="${auction.id}" onclick="endAuction(${auction.id})">Завершить</button>
+                </div>
+              </div>
+            `;
+            
+            list.appendChild(item);
+          });
+          
+          // Обновляем таймер каждую секунду
+          setTimeout(loadActiveAuctions, 1000);
+        } catch (e) {
+          console.error(e);
+          list.innerHTML = '<div class="hint">Не удалось загрузить аукционы</div>';
+        }
+      }
+
+      window.viewAuctionBids = async function(auctionId) {
+        try {
+          const response = await fetchWithTimeout(`${API_BASE}/auctions/${auctionId}/bids`);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          
+          const bids = await response.json();
+          
+          if (!bids.length) {
+            alert('Пока нет ставок');
+            return;
+          }
+          
+          let msg = 'Ставки:\\n';
+          bids.forEach((bid, i) => {
+            msg += `${i+1}. ${bid.amount} руб (User: ${bid.user_id || bid.tg_user_id || 'anon'})\\n`;
+          });
+          
+          alert(msg);
+        } catch (e) {
+          console.error(e);
+          alert('Ошибка загрузки ставок');
+        }
+      };
+
+      window.endAuction = async function(auctionId) {
+        if (!confirm('Завершить этот аукцион?')) return;
+        
+        try {
+          const response = await fetchWithTimeout(`${API_BASE}/auctions/${auctionId}/end`, {
+            method: 'POST'
+          });
+          
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          
+          const result = await response.json();
+          setAuctionMessage(`Аукцион завершен! Победитель: ${result.winner_id || 'нет'}, Финальная ставка: ${result.final_bid || '—'}`);
+          loadActiveAuctions();
+          loadProductsForAuction();
+        } catch (e) {
+          console.error(e);
+          setAuctionMessage('Ошибка завершения аукциона', true);
+        }
+      };
+
+      document
+        .getElementById("auctionForm")
+        .addEventListener("submit", async (e) => {
+          e.preventDefault();
+          
+          const payload = {
+            product_id: parseInt(document.getElementById("auctionProduct").value),
+            start_price: parseFloat(document.getElementById("auctionStartPrice").value),
+            min_bid_increment: parseFloat(document.getElementById("auctionMinIncrement").value),
+            duration_hours: parseInt(document.getElementById("auctionDuration").value)
+          };
+          
+          if (!payload.product_id) {
+            setAuctionMessage('Выберите товар', true);
+            return;
+          }
+          
+          try {
+            setAuctionMessage('Запускаем аукцион...');
+            
+            const response = await fetchWithTimeout(`${API_BASE}/auctions/`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+            
+            if (!response.ok) {
+              const err = await response.json().catch(() => ({}));
+              throw new Error(err.detail || `HTTP ${response.status}`);
+            }
+            
+            const result = await response.json();
+            setAuctionMessage(`Аукцион запущен! ID: ${result.id}, окончание: ${new Date(result.end_time).toLocaleString()}`);
+            
+            document.getElementById("auctionForm").reset();
+            loadActiveAuctions();
+            loadProductsForAuction();
+          } catch (error) {
+            console.error(error);
+            setAuctionMessage(error.message || 'Ошибка запуска аукциона', true);
+          }
+        });
+
       updateImagesPreview();
       loadProducts();
+      loadCategories();
+      loadCategoriesForProduct();
+      loadProductsForAuction();
+      loadActiveAuctions();
     </script>
   </body>
 </html>
