@@ -23,6 +23,11 @@
         box-sizing: border-box;
       }
 
+      html, body {
+        overflow-x: hidden;
+        max-width: 100vw;
+      }
+
       body {
         margin: 0;
         padding: 16px;
@@ -31,6 +36,8 @@
         font-family:
           -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial,
           sans-serif;
+        width: 100%;
+        overflow-x: hidden;
       }
 
       .wrap {
@@ -38,6 +45,7 @@
         margin: 0 auto;
         display: grid;
         gap: 18px;
+        width: 100%;
       }
 
       h1 {
@@ -213,6 +221,21 @@
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .preview-chip .remove-img {
+        cursor: pointer;
+        color: var(--danger);
+        font-weight: bold;
+        font-size: 16px;
+        line-height: 1;
+      }
+
+      .preview-chip .remove-img:hover {
+        color: #8b3d3d;
       }
 
       code {
@@ -525,11 +548,24 @@
 
         preview.innerHTML = images
           .map(
-            (img) =>
-              `<div class="preview-chip" title="${escapeHtml(img)}">${escapeHtml(img)}</div>`,
+            (img, index) =>
+              `<div class="preview-chip" title="${escapeHtml(img)}">
+                <span>${escapeHtml(img)}</span>
+                <span class="remove-img" onclick="removeImage(${index})" title="Удалить изображение">×</span>
+              </div>`,
           )
           .join("");
       }
+
+      window.removeImage = function(index) {
+        const imagesField = document.getElementById("images");
+        const images = parseImages(imagesField.value);
+        if (index >= 0 && index < images.length) {
+          images.splice(index, 1);
+          imagesField.value = images.join(", ");
+          updateImagesPreview();
+        }
+      };
 
       async function fetchWithTimeout(
         url,
