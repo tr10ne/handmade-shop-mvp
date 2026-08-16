@@ -50,6 +50,8 @@ htmlcov/
 # Distribution / packaging
 .Python
 build/
+media/images/
+data/
 develop-eggs/
 dist/
 downloads/
