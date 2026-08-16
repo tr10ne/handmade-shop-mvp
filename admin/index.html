@@ -603,13 +603,68 @@
     <script>
 
       const tg = window.Telegram?.WebApp || null;
-        if (tg) {
-            tg.ready();
-            tg.expand();
-            document.documentElement.style.setProperty('--bg-color', tg.backgroundColor || '#f2f2f7');
-            document.documentElement.style.setProperty('--text-color', tg.textColor || '#000000');
-            document.documentElement.style.setProperty('--primary-color', tg.buttonColor || '#0088cc');
+      
+      // Проверяем авторизацию администратора при загрузке
+      async function checkAdminAuth() {
+        try {
+          const user = tg?.initDataUnsafe?.user;
+          if (!user || !user.id) {
+            showAccessDenied();
+            return false;
+          }
+          
+          const response = await fetch('/api/check-admin', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Telegram-User-Id': String(user.id)
+            },
+            body: JSON.stringify({ user_id: user.id })
+          });
+          
+          if (!response.ok || !(await response.json()).is_admin) {
+            showAccessDenied();
+            return false;
+          }
+          
+          return true;
+        } catch (error) {
+          console.error('Ошибка проверки доступа:', error);
+          showAccessDenied();
+          return false;
         }
+      }
+      
+      function showAccessDenied() {
+        document.body.innerHTML = `
+          <div style="display:grid;place-items:center;min-height:100vh;text-align:center;padding:20px;">
+            <div style="background:#fff;border:1px solid #e7dfd6;border-radius:18px;padding:24px;box-shadow:0 8px 24px rgba(0,0,0,0.08);max-width:400px;">
+              <h2 style="color:#b74d4d;margin-bottom:12px;">Доступ запрещён</h2>
+              <p style="color:#727272;margin-bottom:16px;">Только администраторы группы имеют доступ к этой странице.</p>
+              <button onclick="window.close()" style="background:#8a5a44;color:#fff;border:none;border-radius:12px;padding:12px 20px;font-weight:700;cursor:pointer;">Закрыть</button>
+            </div>
+          </div>
+        `;
+      }
+      
+      // Запускаем проверку перед инициализацией
+      (async function initAdmin() {
+        if (tg) {
+          tg.ready();
+          tg.expand();
+          document.documentElement.style.setProperty('--bg-color', tg.backgroundColor || '#f2f2f7');
+          document.documentElement.style.setProperty('--text-color', tg.textColor || '#000000');
+          document.documentElement.style.setProperty('--primary-color', tg.buttonColor || '#0088cc');
+        }
+        
+        const isAdmin = await checkAdminAuth();
+        if (!isAdmin) return;
+        
+        // Продолжаем загрузку админки если доступ разрешён
+        initAdminApp();
+      })();
+      
+      function initAdminApp() {
 
       // Перехват кликов по ссылкам для открытия внутри TG App
       document.addEventListener('click', function(e) {
@@ -1357,6 +1412,7 @@
       loadCategoriesForProduct();
       loadProductsForAuction();
       loadActiveAuctions();
+      }
     </script>
   </body>
 </html>

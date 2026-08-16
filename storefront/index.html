@@ -378,16 +378,16 @@
       <h1>Игрушки и аксессуары ручной работы</h1>
 
       <div class="topbar">
-        <div class="badge">Локальная витрина · 
+        <div class="badge" id="adminBadge" style="display:none;">Витрина · 
           <a
-            href="/api/health"
+            href="/health"
             >API
           </a
           ></div>
-        <div class="actions">
+        <div class="actions" id="adminActions" style="display:none;">
           <a
             class="btn-link"
-            href="/api/docs"
+            href="/docs"
             >Swagger API</a
           >
           <a
@@ -425,6 +425,50 @@
       tg.ready();
       if (tg) tg.expand();
 
+      // Проверяем, является ли пользователь администратором группы
+      let isAdminUser = false;
+      
+      async function checkAdminStatus() {
+        try {
+          // Получаем данные пользователя из Telegram WebApp
+          const user = tg.initDataUnsafe?.user;
+          if (!user || !user.id) {
+            return false;
+          }
+
+          // Отправляем запрос на API для проверки статуса администратора
+          const response = await fetch('/check-admin', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Telegram-User-Id': String(user.id)
+            },
+            body: JSON.stringify({ user_id: user.id })
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            return data.is_admin === true;
+          }
+          return false;
+        } catch (error) {
+          console.error('Ошибка проверки статуса администратора:', error);
+          return false;
+        }
+      }
+
+      // Отображаем админские кнопки только если пользователь администратор
+      async function initAdminUI() {
+        const adminStatus = await checkAdminStatus();
+        if (adminStatus) {
+          document.getElementById('adminBadge').style.display = 'block';
+          document.getElementById('adminActions').style.display = 'flex';
+        }
+      }
+      
+      // Запускаем проверку при загрузке
+      initAdminUI();
+
       // Перехват кликов по ссылкам для открытия внутри TG App
       document.addEventListener('click', function(e) {
         const link = e.target.closest('a[href]');
@@ -442,10 +486,10 @@
       });
 
       const CONFIG = window.APP_CONFIG || {};
-      const API_BASE = CONFIG.API_BASE || "/api/";
-      const MEDIA_BASE = CONFIG.MEDIA_BASE || "/api/media/";
-      const PRODUCTS_ENDPOINT = CONFIG.PRODUCTS_ENDPOINT || "/products/public/";
-      const CATEGORIES_ENDPOINT = CONFIG.CATEGORIES_ENDPOINT || "/categories/public/";
+      const API_BASE = CONFIG.API_BASE || "/";
+      const MEDIA_BASE = CONFIG.MEDIA_BASE || "/media/";
+      const PRODUCTS_ENDPOINT = CONFIG.PRODUCTS_ENDPOINT || "products/public/";
+      const CATEGORIES_ENDPOINT = CONFIG.CATEGORIES_ENDPOINT || "categories/public/";
       const ADMIN_USERNAME = "katerinka_exbro";
 
       function escapeHtml(value) {

@@ -3,6 +3,7 @@
 Все переменные окружения загружаются здесь один раз при старте приложения.
 """
 import os
+import json
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -21,17 +22,18 @@ class Settings:
     # Database Settings
     DATABASE_URL: str = os.getenv(
         "DATABASE_URL", 
-        "sqlite+aiosqlite:////app/data/shop.db"
+        "sqlite+aiosqlite:////workspace/data/shop.db"
     )
     
     # CORS Settings
-    CORS_ORIGINS: list[str] = [
-        origin.strip() 
-        for origin in os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001").split(",")
-    ]
+    _cors_origins_raw = os.getenv("CORS_ORIGINS", '["http://localhost:3000","http://localhost:3001"]')
+    try:
+        CORS_ORIGINS: list[str] = json.loads(_cors_origins_raw)
+    except (json.JSONDecodeError, TypeError):
+        CORS_ORIGINS = [origin.strip() for origin in _cors_origins_raw.split(",")]
     
     # Media Settings
-    MEDIA_ROOT: Path = Path(os.getenv("MEDIA_ROOT", "/app/media"))
+    MEDIA_ROOT: Path = Path(os.getenv("MEDIA_ROOT", "/workspace/media"))
     MEDIA_URL: str = os.getenv("MEDIA_URL", "/media")
     
     # Security Settings (for future use)

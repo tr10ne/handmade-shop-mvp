@@ -6,6 +6,8 @@ from pathlib import Path
 import logging
 import aiohttp
 import os
+from fastapi.responses import JSONResponse
+
 
 # Настройка логирования
 logging.basicConfig(
@@ -17,7 +19,6 @@ from database import engine, Base, get_db
 from routers import products, categories, auctions, uploads
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse
 
 
 # Кэш администраторов группы: {tg_user_id: True}
@@ -120,6 +121,16 @@ app = FastAPI(
     openapi_url="/openapi.json"
 )
 
+# Генерируем openapi схему при старте для корректной работы Swagger
+@app.on_event("startup")
+async def generate_openapi():
+    from fastapi.openapi.utils import get_openapi
+    app.openapi_schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        routes=app.routes,
+    )
+
 # Монтирование статических файлов для медиа
 # MEDIA_ROOT указывает на директорию с файлами, монтируем её напрямую
 app.mount(settings.MEDIA_URL, StaticFiles(directory=str(settings.MEDIA_ROOT)), name="media")
@@ -163,7 +174,51 @@ async def swagger_docs(request: Request):
             status_code=403,
             content={"detail": "Доступ запрещён. Только для администраторов."}
         )
-    return get_swagger_ui_html(openapi_url="/openapi.json", title=app.title)
+    
+    # Получаем Telegram user ID для передачи в Swagger UI
+    tg_user_id = request.headers.get("X-Telegram-User-Id")
+    
+    # Генерируем HTML с кастомной конфигурацией Swagger UI
+    swagger_html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+    <link type="text/css" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css">
+    <link rel="shortcut icon" href="https://fastapi.tiangolo.com/img/favicon.png">
+    <title>{app.title}</title>
+    </head>
+    <body>
+    <div id="swagger-ui"></div>
+    <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+    <script>
+    const ui = SwaggerUIBundle({{
+        url: '/openapi.json',
+        dom_id: '#swagger-ui',
+        layout: 'BaseLayout',
+        deepLinking: true,
+        showExtensions: true,
+        showCommonExtensions: true,
+        presets: [
+            SwaggerUIBundle.presets.apis,
+            SwaggerUIBundle.SwaggerUIStandalonePreset
+        ],
+        requestInterceptor: (request) => {{
+            request.headers['X-Telegram-User-Id'] = '{tg_user_id}';
+            return request;
+        }}
+    }});
+    </script>
+    </body>
+    </html>
+    """
+    from fastapi.responses import HTMLResponse
+    return HTMLResponse(content=swagger_html)
+
+@app.post("/check-admin")
+async def check_admin(request: Request):
+    """Проверка статуса администратора для frontend"""
+    is_admin = await verify_admin_access(request)
+    return {"is_admin": is_admin}
 
 app.include_router(categories.router)
 app.include_router(products.router)
