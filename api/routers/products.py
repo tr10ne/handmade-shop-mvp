@@ -19,15 +19,23 @@ async def verify_admin_access(request: Request) -> bool:
 
     try:
         user_id = int(tg_user_id)
-        # Получаем список админов из переменных окружения
-        admin_ids = [
+    except (ValueError, TypeError):
+        return False
+    
+    # Получаем список админов из кэша или через Telegram API
+    from main import get_group_admin_ids
+    admin_ids = await get_group_admin_ids()
+    
+    # Если список администраторов пуст (нет токена/группы), проверяем по старому методу
+    if not admin_ids:
+        static_admin_ids = {
             int(id_str.strip())
             for id_str in os.getenv("ADMIN_TELEGRAM_IDS", "").split(",")
             if id_str.strip()
-        ]
-        return user_id in admin_ids
-    except (ValueError, TypeError):
-        return False
+        }
+        return user_id in static_admin_ids
+    
+    return user_id in admin_ids
 
 router = APIRouter(prefix="/products", tags=["products"])
 

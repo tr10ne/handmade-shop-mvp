@@ -99,6 +99,50 @@
         height: 100%;
       }
 
+      /* Стили для горизонтальной прокрутки категорий */
+      .categories-scroll-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+        margin-bottom: 16px;
+        padding: 4px 0;
+      }
+
+      .categories-scroll-container::-webkit-scrollbar {
+        display: none;
+      }
+
+      .categories-list {
+        display: inline-flex;
+        gap: 8px;
+        white-space: nowrap;
+      }
+
+      .category-tag {
+        display: inline-block;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 8px 16px;
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--muted);
+        cursor: pointer;
+        transition: all 0.2s ease;
+        user-select: none;
+      }
+
+      .category-tag:hover {
+        background: var(--border);
+      }
+
+      .category-tag.active {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+
       .slider-container {
         position: relative;
         width: 100%;
@@ -355,8 +399,8 @@
       </div>
 
       <!-- Категории (теги с горизонтальной прокруткой) -->
-      <div id="categoriesContainer" style="margin-bottom: 16px; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; scrollbar-width: none; -ms-overflow-style: none;">
-        <div id="categoriesList" style="display: inline-flex; gap: 8px; padding: 4px 0;"></div>
+      <div id="categoriesContainer" class="categories-scroll-container">
+        <div id="categoriesList" class="categories-list"></div>
       </div>
 
       <div id="catalog" class="catalog"></div>
@@ -401,7 +445,7 @@
       const API_BASE = CONFIG.API_BASE || "/api/";
       const MEDIA_BASE = CONFIG.MEDIA_BASE || "/api/media/";
       const PRODUCTS_ENDPOINT = CONFIG.PRODUCTS_ENDPOINT || "/products/public/";
-      const CATEGORIES_ENDPOINT = CONFIG.CATEGORIES_ENDPOINT || "/categories/";
+      const CATEGORIES_ENDPOINT = CONFIG.CATEGORIES_ENDPOINT || "/categories/public/";
       const ADMIN_USERNAME = "katerinka_exbro";
 
       function escapeHtml(value) {

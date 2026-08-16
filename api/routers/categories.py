@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from pydantic import BaseModel, Field
@@ -8,6 +8,34 @@ import os
 
 from database import get_db
 from models import Category, Product
+
+# Импортируем функцию проверки админа из main
+async def verify_admin_access(request: Request) -> bool:
+    """Проверяет, есть ли у пользователя доступ администратора"""
+    tg_user_id = request.headers.get("X-Telegram-User-Id")
+
+    if not tg_user_id:
+        return False
+
+    try:
+        user_id = int(tg_user_id)
+    except (ValueError, TypeError):
+        return False
+    
+    # Получаем список админов из кэша или через Telegram API
+    from main import get_group_admin_ids
+    admin_ids = await get_group_admin_ids()
+    
+    # Если список администраторов пуст (нет токена/группы), проверяем по старому методу
+    if not admin_ids:
+        static_admin_ids = {
+            int(id_str.strip())
+            for id_str in os.getenv("ADMIN_TELEGRAM_IDS", "").split(",")
+            if id_str.strip()
+        }
+        return user_id in static_admin_ids
+    
+    return user_id in admin_ids
 
 
 router = APIRouter(prefix="/categories", tags=["categories"])
@@ -65,8 +93,10 @@ def category_to_out(category: Category, product_count: int = 0) -> CategoryOut:
 
 
 @router.get("/", response_model=list[CategoryOut])
-async def list_categories(include_inactive: bool = False, db: AsyncSession = Depends(get_db)):
-    """Получить список всех категорий"""
+async def list_categories(request: Request, include_inactive: bool = False, db: AsyncSession = Depends(get_db)):
+    """Получить список всех категорий - только для админов"""
+    if not await verify_admin_access(request):
+        raise HTTPException(status_code=403, detail="Доступ запрещён. Только для администраторов.")
     query = select(Category)
     if not include_inactive:
         query = query.where(Category.is_active == True)
@@ -86,9 +116,31 @@ async def list_categories(include_inactive: bool = False, db: AsyncSession = Dep
     return categories_with_counts
 
 
+@router.get("/public/", response_model=list[CategoryOut])
+async def list_categories_public(include_inactive: bool = False, db: AsyncSession = Depends(get_db)):
+    """Получить список активных категорий для витрины - доступно всем"""
+    query = select(Category).where(Category.is_active == True)
+    query = query.order_by(Category.sort_order, Category.name)
+    
+    result = await db.execute(query)
+    categories = result.scalars().all()
+    
+    # Получаем количество товаров в каждой категории
+    categories_with_counts = []
+    for cat in categories:
+        count_query = select(func.count(Product.id)).where(Product.category_id == cat.id)
+        count_result = await db.execute(count_query)
+        product_count = count_result.scalar() or 0
+        categories_with_counts.append(category_to_out(cat, product_count))
+    
+    return categories_with_counts
+
+
 @router.get("/{category_id}", response_model=CategoryOut)
-async def get_category(category_id: int, db: AsyncSession = Depends(get_db)):
-    """Получить категорию по ID"""
+async def get_category(request: Request, category_id: int, db: AsyncSession = Depends(get_db)):
+    """Получить категорию по ID - только для админов"""
+    if not await verify_admin_access(request):
+        raise HTTPException(status_code=403, detail="Доступ запрещён. Только для администраторов.")
     category = await db.get(Category, category_id)
     if not category:
         raise HTTPException(status_code=404, detail="Категория не найдена")
@@ -101,8 +153,10 @@ async def get_category(category_id: int, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/", response_model=CategoryOut, status_code=status.HTTP_201_CREATED)
-async def create_category(payload: CategoryCreate, db: AsyncSession = Depends(get_db)):
-    """Создать новую категорию"""
+async def create_category(request: Request, payload: CategoryCreate, db: AsyncSession = Depends(get_db)):
+    """Создать новую категорию - только для админов"""
+    if not await verify_admin_access(request):
+        raise HTTPException(status_code=403, detail="Доступ запрещён. Только для администраторов.")
     # Проверка на уникальность slug
     existing = await db.get(Category, payload.slug)
     if existing:
@@ -125,8 +179,10 @@ async def create_category(payload: CategoryCreate, db: AsyncSession = Depends(ge
 
 
 @router.put("/{category_id}", response_model=CategoryOut)
-async def update_category(category_id: int, payload: CategoryUpdate, db: AsyncSession = Depends(get_db)):
-    """Обновить категорию"""
+async def update_category(request: Request, category_id: int, payload: CategoryUpdate, db: AsyncSession = Depends(get_db)):
+    """Обновить категорию - только для админов"""
+    if not await verify_admin_access(request):
+        raise HTTPException(status_code=403, detail="Доступ запрещён. Только для администраторов.")
     category = await db.get(Category, category_id)
     if not category:
         raise HTTPException(status_code=404, detail="Категория не найдена")
@@ -146,8 +202,10 @@ async def update_category(category_id: int, payload: CategoryUpdate, db: AsyncSe
 
 
 @router.delete("/{category_id}")
-async def delete_category(category_id: int, db: AsyncSession = Depends(get_db)):
-    """Удалить категорию"""
+async def delete_category(request: Request, category_id: int, db: AsyncSession = Depends(get_db)):
+    """Удалить категорию - только для админов"""
+    if not await verify_admin_access(request):
+        raise HTTPException(status_code=403, detail="Доступ запрещён. Только для администраторов.")
     category = await db.get(Category, category_id)
     if not category:
         raise HTTPException(status_code=404, detail="Категория не найдена")
@@ -159,8 +217,10 @@ async def delete_category(category_id: int, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/{category_id}/products")
-async def get_category_products(category_id: int, db: AsyncSession = Depends(get_db)):
-    """Получить все товары категории"""
+async def get_category_products(request: Request, category_id: int, db: AsyncSession = Depends(get_db)):
+    """Получить все товары категории - только для админов"""
+    if not await verify_admin_access(request):
+        raise HTTPException(status_code=403, detail="Доступ запрещён. Только для администраторов.")
     category = await db.get(Category, category_id)
     if not category:
         raise HTTPException(status_code=404, detail="Категория не найдена")
@@ -187,8 +247,10 @@ async def get_category_products(category_id: int, db: AsyncSession = Depends(get
 
 
 @router.post("/{category_id}/products/reorder")
-async def reorder_category_products(category_id: int, items: list[ProductReorder], db: AsyncSession = Depends(get_db)):
-    """Массовое изменение порядка товаров в категории"""
+async def reorder_category_products(request: Request, category_id: int, items: list[ProductReorder], db: AsyncSession = Depends(get_db)):
+    """Массовое изменение порядка товаров в категории - только для админов"""
+    if not await verify_admin_access(request):
+        raise HTTPException(status_code=403, detail="Доступ запрещён. Только для администраторов.")
     category = await db.get(Category, category_id)
     if not category:
         raise HTTPException(status_code=404, detail="Категория не найдена")
