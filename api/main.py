@@ -4,6 +4,8 @@ from contextlib import asynccontextmanager
 from config import settings
 from pathlib import Path
 import logging
+import aiohttp
+import os
 
 # Настройка логирования
 logging.basicConfig(
@@ -18,17 +20,60 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
 
 
-# Список Telegram ID администраторов (заполняется из переменных окружения)
-import os
-ADMIN_TELEGRAM_IDS = [
-    int(id_str.strip())
-    for id_str in os.getenv("ADMIN_TELEGRAM_IDS", "").split(",")
-    if id_str.strip()
-]
+# Кэш администраторов группы: {tg_user_id: True}
+_admin_cache = {}
+_admin_cache_timestamp = 0
+ADMIN_CACHE_TTL = 300  # 5 минут
+
+
+async def get_group_admin_ids() -> set[int]:
+    """Получает ID администраторов из Telegram группы через Bot API"""
+    global _admin_cache, _admin_cache_timestamp
+    import time
+    
+    # Проверяем кэш
+    now = time.time()
+    if _admin_cache and (now - _admin_cache_timestamp) < ADMIN_CACHE_TTL:
+        return set(_admin_cache.keys())
+    
+    if not settings.TELEGRAM_BOT_TOKEN or not settings.TELEGRAM_ADMIN_GROUP_ID:
+        # Если нет токена или ID группы, возвращаем пустое множество
+        return set()
+    
+    try:
+        bot_url = f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}"
+        
+        # Получаем список администраторов чата
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                f"{bot_url}/getChatAdministrators",
+                json={"chat_id": settings.TELEGRAM_ADMIN_GROUP_ID}
+            ) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    if data.get("ok"):
+                        admins = data.get("result", [])
+                        # Извлекаем user.id для каждого администратора
+                        admin_ids = set()
+                        for admin in admins:
+                            user = admin.get("user", {})
+                            user_id = user.get("id")
+                            if user_id:
+                                admin_ids.add(user_id)
+                        
+                        # Обновляем кэш
+                        _admin_cache = {uid: True for uid in admin_ids}
+                        _admin_cache_timestamp = now
+                        return admin_ids
+    except Exception as e:
+        logging.error(f"Ошибка получения администраторов группы: {e}")
+    
+    return set(_admin_cache.keys())
+
 
 async def verify_admin_access(request: Request) -> bool:
     """Проверяет, есть ли у пользователя доступ администратора"""
-    # Получаем Telegram user ID из заголовка или параметра запроса
+    # Получаем Telegram user ID из заголовка
     tg_user_id = request.headers.get("X-Telegram-User-Id")
 
     if not tg_user_id:
@@ -36,9 +81,23 @@ async def verify_admin_access(request: Request) -> bool:
 
     try:
         user_id = int(tg_user_id)
-        return user_id in ADMIN_TELEGRAM_IDS
     except (ValueError, TypeError):
         return False
+    
+    # Получаем актуальный список администраторов
+    admin_ids = await get_group_admin_ids()
+    
+    # Если список администраторов пуст (нет токена/группы), проверяем по старому методу
+    if not admin_ids:
+        # Fallback на статический список из переменных окружения
+        static_admin_ids = {
+            int(id_str.strip())
+            for id_str in os.getenv("ADMIN_TELEGRAM_IDS", "").split(",")
+            if id_str.strip()
+        }
+        return user_id in static_admin_ids
+    
+    return user_id in admin_ids
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -58,7 +117,7 @@ app = FastAPI(
     lifespan=lifespan,
     docs_url=None,
     redoc_url=None,
-    openapi_url=None
+    openapi_url="/openapi.json"
 )
 
 # Монтирование статических файлов для медиа

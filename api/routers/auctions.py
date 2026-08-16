@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from pydantic import BaseModel, Field
@@ -9,6 +9,34 @@ import asyncio
 
 from database import get_db
 from models import Product, ProductAuction, AuctionBid, User, ProductStatus
+
+# Импортируем функцию проверки админа из main
+async def verify_admin_access(request: Request) -> bool:
+    """Проверяет, есть ли у пользователя доступ администратора"""
+    tg_user_id = request.headers.get("X-Telegram-User-Id")
+
+    if not tg_user_id:
+        return False
+
+    try:
+        user_id = int(tg_user_id)
+    except (ValueError, TypeError):
+        return False
+    
+    # Получаем список админов из кэша или через Telegram API
+    from main import get_group_admin_ids
+    admin_ids = await get_group_admin_ids()
+    
+    # Если список администраторов пуст (нет токена/группы), проверяем по старому методу
+    if not admin_ids:
+        static_admin_ids = {
+            int(id_str.strip())
+            for id_str in os.getenv("ADMIN_TELEGRAM_IDS", "").split(",")
+            if id_str.strip()
+        }
+        return user_id in static_admin_ids
+    
+    return user_id in admin_ids
 
 
 router = APIRouter(prefix="/auctions", tags=["auctions"])
@@ -124,8 +152,10 @@ def auction_to_out(auction: ProductAuction, bids_count: int = 0) -> AuctionOut:
 
 
 @router.post("/", response_model=AuctionOut, status_code=status.HTTP_201_CREATED)
-async def create_auction(payload: AuctionCreate, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
-    """Создать аукцион для товара"""
+async def create_auction(request: Request, payload: AuctionCreate, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
+    """Создать аукцион для товара - только для админов"""
+    if not await verify_admin_access(request):
+        raise HTTPException(status_code=403, detail="Доступ запрещён. Только для администраторов.")
     # Проверка товара
     product = await db.get(Product, payload.product_id)
     if not product:
@@ -182,8 +212,10 @@ async def monitor_auction_end(auction_id: int, delay_seconds: float):
 
 
 @router.get("/", response_model=list[AuctionOut])
-async def list_auctions(status_filter: str | None = None, db: AsyncSession = Depends(get_db)):
-    """Получить список аукционов"""
+async def list_auctions(request: Request, status_filter: str | None = None, db: AsyncSession = Depends(get_db)):
+    """Получить список аукционов - только для админов"""
+    if not await verify_admin_access(request):
+        raise HTTPException(status_code=403, detail="Доступ запрещён. Только для администраторов.")
     query = select(ProductAuction)
     
     if status_filter:
@@ -204,8 +236,10 @@ async def list_auctions(status_filter: str | None = None, db: AsyncSession = Dep
 
 
 @router.get("/{auction_id}", response_model=AuctionOut)
-async def get_auction(auction_id: int, db: AsyncSession = Depends(get_db)):
-    """Получить аукцион по ID"""
+async def get_auction(request: Request, auction_id: int, db: AsyncSession = Depends(get_db)):
+    """Получить аукцион по ID - только для админов"""
+    if not await verify_admin_access(request):
+        raise HTTPException(status_code=403, detail="Доступ запрещён. Только для администраторов.")
     auction = await db.get(ProductAuction, auction_id)
     if not auction:
         raise HTTPException(status_code=404, detail="Аукцион не найден")
@@ -218,8 +252,10 @@ async def get_auction(auction_id: int, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/bids", status_code=status.HTTP_201_CREATED)
-async def place_bid(payload: BidCreate, db: AsyncSession = Depends(get_db)):
-    """Сделать ставку на аукционе"""
+async def place_bid(request: Request, payload: BidCreate, db: AsyncSession = Depends(get_db)):
+    """Сделать ставку на аукционе - только для админов"""
+    if not await verify_admin_access(request):
+        raise HTTPException(status_code=403, detail="Доступ запрещён. Только для администраторов.")
     auction = await db.get(ProductAuction, payload.auction_id)
     if not auction:
         raise HTTPException(status_code=404, detail="Аукцион не найден")
@@ -270,8 +306,10 @@ async def place_bid(payload: BidCreate, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/{auction_id}/bids")
-async def get_auction_bids(auction_id: int, db: AsyncSession = Depends(get_db)):
-    """Получить все ставки аукциона"""
+async def get_auction_bids(request: Request, auction_id: int, db: AsyncSession = Depends(get_db)):
+    """Получить все ставки аукциона - только для админов"""
+    if not await verify_admin_access(request):
+        raise HTTPException(status_code=403, detail="Доступ запрещён. Только для администраторов.")
     auction = await db.get(ProductAuction, auction_id)
     if not auction:
         raise HTTPException(status_code=404, detail="Аукцион не найден")
@@ -293,8 +331,10 @@ async def get_auction_bids(auction_id: int, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/{auction_id}/end")
-async def end_auction(auction_id: int, db: AsyncSession = Depends(get_db)):
-    """Завершить аукцион вручную"""
+async def end_auction(request: Request, auction_id: int, db: AsyncSession = Depends(get_db)):
+    """Завершить аукцион вручную - только для админов"""
+    if not await verify_admin_access(request):
+        raise HTTPException(status_code=403, detail="Доступ запрещён. Только для администраторов.")
     auction = await db.get(ProductAuction, auction_id)
     if not auction:
         raise HTTPException(status_code=404, detail="Аукцион не найден")
@@ -335,8 +375,10 @@ async def end_auction(auction_id: int, db: AsyncSession = Depends(get_db)):
 
 
 @router.put("/{auction_id}")
-async def update_auction(auction_id: int, payload: AuctionUpdate, db: AsyncSession = Depends(get_db)):
-    """Обновить параметры аукциона"""
+async def update_auction(request: Request, auction_id: int, payload: AuctionUpdate, db: AsyncSession = Depends(get_db)):
+    """Обновить параметры аукциона - только для админов"""
+    if not await verify_admin_access(request):
+        raise HTTPException(status_code=403, detail="Доступ запрещён. Только для администраторов.")
     auction = await db.get(ProductAuction, auction_id)
     if not auction:
         raise HTTPException(status_code=404, detail="Аукцион не найден")

@@ -39,9 +39,18 @@ class Settings:
     ALGORITHM: str = os.getenv("ALGORITHM", "HS256")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
     
-    # Telegram Bot Settings (for future integration)
+    # Telegram Bot Settings
     TELEGRAM_BOT_TOKEN: str | None = os.getenv("TELEGRAM_BOT_TOKEN")
     TELEGRAM_WEBHOOK_URL: str | None = os.getenv("TELEGRAM_WEBHOOK_URL")
+    
+    # Telegram Group Settings for Admin Access
+    TELEGRAM_ADMIN_GROUP_ID: int | None = None
+    _group_id_str = os.getenv("TELEGRAM_ADMIN_GROUP_ID", "")
+    if _group_id_str.strip():
+        try:
+            TELEGRAM_ADMIN_GROUP_ID = int(_group_id_str.strip())
+        except ValueError:
+            pass
     
     @property
     def allow_any_cors(self) -> bool:
