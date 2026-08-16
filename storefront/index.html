@@ -380,14 +380,14 @@
       <div class="topbar">
         <div class="badge" id="adminBadge" style="display:none;">Витрина · 
           <a
-            href="/health"
+            href="/api/health"
             >API
           </a
           ></div>
         <div class="actions" id="adminActions" style="display:none;">
           <a
             class="btn-link"
-            href="/docs"
+            href="/api/docs"
             >Swagger API</a
           >
           <a
@@ -437,7 +437,7 @@
           }
 
           // Отправляем запрос на API для проверки статуса администратора
-          const response = await fetch('/check-admin', {
+          const response = await fetch('/api/check-admin', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -486,8 +486,8 @@
       });
 
       const CONFIG = window.APP_CONFIG || {};
-      const API_BASE = CONFIG.API_BASE || "/";
-      const MEDIA_BASE = CONFIG.MEDIA_BASE || "/media/";
+      const API_BASE = CONFIG.API_BASE || "/api/";
+      const MEDIA_BASE = CONFIG.MEDIA_BASE || "/api/media/";
       const PRODUCTS_ENDPOINT = CONFIG.PRODUCTS_ENDPOINT || "products/public/";
       const CATEGORIES_ENDPOINT = CONFIG.CATEGORIES_ENDPOINT || "categories/public/";
       const ADMIN_USERNAME = "katerinka_exbro";

@@ -22,7 +22,7 @@ class Settings:
     # Database Settings
     DATABASE_URL: str = os.getenv(
         "DATABASE_URL", 
-        "sqlite+aiosqlite:////workspace/data/shop.db"
+        "sqlite+aiosqlite:////app/data/shop.db"
     )
     
     # CORS Settings
@@ -33,7 +33,7 @@ class Settings:
         CORS_ORIGINS = [origin.strip() for origin in _cors_origins_raw.split(",")]
     
     # Media Settings
-    MEDIA_ROOT: Path = Path(os.getenv("MEDIA_ROOT", "/workspace/media"))
+    MEDIA_ROOT: Path = Path(os.getenv("MEDIA_ROOT", "/app/media"))
     MEDIA_URL: str = os.getenv("MEDIA_URL", "/media")
     
     # Security Settings (for future use)
